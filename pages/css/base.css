@@ -137,6 +137,54 @@ legend {
     padding: 20px 12px 20px 0;
 }
 
+.add-engine {
+    background: #A78529;
+    color: #131313;
+    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 7px;
+    margin-left: 8px;
+}
+
 /*
 clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
 */
+
+
+.ue4-engine::before {
+    width: 166px;
+    height: 82px;
+    display: inline-block;
+    background: #284461;
+    clip-path: polygon(146px 2px, 164px 20px, 164px 80px, 20px 80px, 2px 61px, 2px 2px);
+    content: "";
+    position: fixed;
+    z-index: -1;
+}
+
+.ue4-engine {
+    width: 166px;
+    height: 82px;
+    display: inline-block;
+    background: #A78529;
+    clip-path: polygon(146px 0%, 100% 20px, 100% 100%, 20px 100%, 0% 62px, 0 0);
+    position: relative;
+}
+
+.engine-version {
+    color: #eee;
+    display: inline-block;
+    position: absolute;
+    right: 23px;
+    font-size: 22px;
+}
+
+.engine-launch {
+    color: #eee;
+    display: inline-block;
+    float: right;
+    font-size: 22px;
+    position: absolute;
+    right: 23px;
+    bottom: 10px;
+}
