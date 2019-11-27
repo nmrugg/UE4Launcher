@@ -1,0 +1,119 @@
+html, body {
+    height: 100%;
+}
+body {
+    background: #131313;
+    color: gray;
+    margin: 0;
+    display: flex;
+    font-family: sansFont;
+    font-size: 15px;
+    position: relative;
+}
+
+a {
+    color: gray;
+    text-decoration: none;
+}
+
+.nav-item.selected, .nav-item.selected a {
+    color: #eee;
+}
+
+nav {
+    width: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    
+}
+
+nav header {
+    position: relative;
+    padding: 1rem 1.7rem;
+    margin-bottom: 1rem;
+}
+
+.nav-item {
+    padding: .8rem 2rem;
+    
+}
+
+
+main {
+    margin-left: 200px;
+    overflow: auto;
+    box-sizing: border-box;
+    width: 100%;
+    flex-flow: column;
+    display: flex;
+    height: 100%;
+
+}
+
+header {
+    color: #eee;
+}
+
+main header {
+    /* Gradiant border */
+    border-left-width: 1px;
+    border-left-style: solid;
+    border-image: linear-gradient(to top, #2d2d2d, rgba(0, 0, 0, 0)) 1 100%;
+}
+
+.content, main header {
+    padding-left: 10px;
+}
+
+
+.content {
+    border-top: 1px solid #2d2d2d;
+    border-left: 1px solid #2d2d2d;
+    height: 100%;
+}
+
+
+.eg-logo {
+    width: 34px;
+    height: 40px;
+    vertical-align: middle;
+    padding-right: 18px;
+}
+
+.tab {
+    display: inline-block;
+    padding: 18px 20px;
+    color: gray;
+    border-bottom: 3px solid transparent;
+}
+
+.tab.selected, .tab.selected a {
+    color: #eee;
+    background-color: #272727;
+    border-bottom-color: #A78529;
+}
+
+@font-face {
+    font-family: sansFont;
+    src: url(../fonts/OpenSans-Regular.ttf);
+}
+@font-face {
+    font-family: sansFont;
+    src: url(../fonts/OpenSans-Bold.ttf);
+    font-weight: bold;
+}
+@font-face {
+    font-family: sansFont;
+    src: url(../fonts/OpenSans-Italic.ttf);
+    font-style: oblique;
+}
+@font-face {
+    font-family: sansFont;
+    src: url(../fonts/OpenSans-BoldItalic.ttf);
+    font-style: oblique;
+    font-weight: bold;
+}
