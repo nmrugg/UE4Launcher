@@ -35,14 +35,16 @@ var mainWindow;
 Menu.setApplicationMenu(null);
 
 
-function createWindow() {
+function login(cb) {
     // Create the browser window.
     mainWindow = new BrowserWindow({
         width: 800,
         height: 800,
+        /*
         webPreferences: {
             preload: p.join(__dirname, "preload.js")
         },
+        */
         icon: p.join(__dirname, "ue-logo.png"),
         show: true, /// Use FALSE for graceful loading
         title: "Unreal Engine Launcher"
@@ -141,6 +143,32 @@ function createWindow() {
         console.log(title, explicitSet)
     });
     */
+}
+
+function createWindow()
+{
+    // Create the browser window.
+    mainWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        fullscreenable: true,
+        webPreferences: {
+            //preload: p.join(__dirname, "preload.js")
+            nodeIntegration: true,
+            devTools: true,
+        },
+        
+        icon: p.join(__dirname, "ue-logo.png"),
+        show: true, /// Use FALSE for graceful loading
+        title: "Unreal Engine Launcher"
+    });
+    var contents = mainWindow.webContents;
+    var isLoggedIn = false;
+    // and load the index.html of the app.
+    mainWindow.loadFile("pages/unreal_engine.html");
+    
+    mainWindow.webContents.openDevTools()
+    mainWindow.maximize();
 }
 
 // This method will be called when Electron has finished
