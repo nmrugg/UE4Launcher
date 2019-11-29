@@ -5,7 +5,9 @@ var os = require("os");
 var p = require("path");
 var spawn = require("child_process").spawn;
 
-var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor";
+var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
+var lastProjectLaunched;
+var lastProjectLaunchedTime;
 
 function getProjects()
 {
@@ -44,7 +46,13 @@ function createProjectList()
         
         function launch()
         {
-            spawn(unrealEnginePath, [project.projectPath]);
+            var curTime = Date.now();
+            
+            if (!lastProjectLaunchedTime || curTime - lastProjectLaunchedTime > 5000) {
+                lastProjectLaunched = project.name;
+                lastProjectLaunchedTime = Date.now();
+                spawn(unrealEnginePath, [project.projectPath]);
+            }
         }
         
         container.className = "project-container";
