@@ -3,6 +3,9 @@
 var fs = require("fs");
 var os = require("os");
 var p = require("path");
+var spawn = require("child_process").spawn;
+
+var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor";
 
 function getProjects()
 {
@@ -16,7 +19,8 @@ function getProjects()
         var thumb = p.join(path, "Saved", "AutoScreenshot.png");
         var proj = {
             name: dir,
-            path: path,
+            dir: path,
+            projectPath: p.join(path, dir + ".uproject"),
             thumb: fs.existsSync(thumb) ? thumb : null,
         };
         projects.push(proj);
@@ -38,6 +42,11 @@ function createProjectList()
         var version = document.createElement("span");
         var name = document.createElement("div");
         
+        function launch()
+        {
+            spawn(unrealEnginePath, [project.projectPath]);
+        }
+        
         container.className = "project-container";
         //img.src = project.thumb || defaultThumb;
         img.style.backgroundImage = "url(\"" + (project.thumb || defaultThumb) + "\")";
@@ -53,6 +62,9 @@ function createProjectList()
         img.appendChild(version);
         container.appendChild(img);
         container.appendChild(name);
+        
+        img.onclick = launch;
+        name.onclick = launch;
         
         projectsAreaEl.appendChild(container);
     });

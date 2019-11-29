@@ -214,6 +214,7 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     height: 192px;
     text-align: right;
     position: relative;
+    cursor: pointer;
 }
 
 .project-version {   
@@ -223,9 +224,11 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     position: absolute;
     bottom: 0;
     right: 0;
+    user-select: none;
 }
 
 .project-name {
     text-overflow: ellipsis;
     overflow-x: hidden;
+    cursor: pointer;
 }
