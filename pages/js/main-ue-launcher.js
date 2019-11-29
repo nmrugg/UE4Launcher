@@ -6,6 +6,7 @@ var p = require("path");
 var spawn = require("child_process").spawn;
 
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
+var lastEngineLaunched;
 var lastProjectLaunched;
 var lastProjectLaunchedTime;
 
@@ -46,13 +47,7 @@ function createProjectList()
         
         function launch()
         {
-            var curTime = Date.now();
-            
-            if (!lastProjectLaunchedTime || curTime - lastProjectLaunchedTime > 5000) {
-                lastProjectLaunched = project.name;
-                lastProjectLaunchedTime = Date.now();
-                spawn(unrealEnginePath, [project.projectPath]);
-            }
+            launchEngine(undefined, project.projectPath);
         }
         
         container.className = "project-container";
@@ -77,6 +72,31 @@ function createProjectList()
         projectsAreaEl.appendChild(container);
     });
 }
-//console.log(getProjects());
+
+function launchEngine(engine, project)
+{
+    var args;
+    var curTime = Date.now();
+    
+    engine = engine || unrealEnginePath
+    
+    if (!lastProjectLaunchedTime || curTime - lastProjectLaunchedTime > 5000 || lastProjectLaunched !== project || lastEngineLaunched !== engine) {
+        lastProjectLaunched = project;
+        lastProjectLaunchedTime = curTime;
+        lastEngineLaunched = engine;
+    
+        if (project) {
+            args = [project];
+        }
+        
+        spawn(engine, args);
+    }
+}
 
 createProjectList();
+
+///TEMP: Launch button
+document.getElementById("temp423Launch").onclick = function ()
+{
+    launchEngine();
+};
