@@ -4,33 +4,14 @@ var fs = require("fs");
 var os = require("os");
 var p = require("path");
 var spawn = require("child_process").spawn;
+var SHARED = require(p.join(__dirname, "..", "shared", "functions"));
+var getProjects = SHARED.getProjects;
 
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
 var lastEngineLaunched;
 var lastProjectLaunched;
 var lastProjectLaunchedTime;
 
-function getProjects()
-{
-    var baseDir = p.join(os.homedir(), "Documents", "Unreal Projects");
-    var projectDirs = fs.readdirSync(baseDir);
-    var projects = [];
-    
-    projectDirs.forEach(function (dir)
-    {
-        var path = p.join(baseDir, dir);
-        var thumb = p.join(path, "Saved", "AutoScreenshot.png");
-        var proj = {
-            name: dir,
-            dir: path,
-            projectPath: p.join(path, dir + ".uproject"),
-            thumb: fs.existsSync(thumb) ? thumb : null,
-        };
-        projects.push(proj);
-    });
-    
-    return projects;
-}
 
 function createProjectList()
 {
@@ -54,8 +35,6 @@ function createProjectList()
         //img.src = project.thumb || defaultThumb;
         img.style.backgroundImage = "url(\"" + (project.thumb || defaultThumb) + "\")";
         img.className = "project-img-box";
-        console.log("url(" + (project.thumb || defaultThumb) + ")")
-        console.log(version.style.backgroundImage)
         version.textContent = "4.23"; ///TODO: Get actual verion number!
         version.className = "project-version";
         name.textContent = project.name;
@@ -100,3 +79,14 @@ document.getElementById("temp423Launch").onclick = function ()
 {
     launchEngine();
 };
+
+
+/*
+const { ipcRenderer } = require('electron')
+console.log(ipcRenderer.sendSync('synchronous-message', 'ping')) // prints "pong"
+
+ipcRenderer.on('asynchronous-reply', (event, arg) => {
+  console.log(arg) // prints "pong"
+})
+ipcRenderer.send('asynchronous-message', 'ping')
+*/
