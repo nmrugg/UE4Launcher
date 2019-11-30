@@ -3,10 +3,16 @@
 // Modules to control application life and create native browser window
 var electron = require("electron");
 var p = require("path");
+var os = require("os");
+var fs = require("fs");
 var app = electron.app;
 var BrowserWindow = electron.BrowserWindow;
 var Menu = electron.Menu;
 var ipc = electron.ipcMain;
+var loginWindow;
+var isLoggedIn = false;
+var offline = true;
+var vault;
 
 /*
 var menuTemplate = [
@@ -90,11 +96,33 @@ function getJSON(url, options, cb)
     });
 }
 
+function returnFile(filePath, del, cb)
+{
+    var data;
+    
+    try {
+        data = fs.readFileSync(filePath, "utf8");
+    } catch (e) {
+        console.error(e);
+        ///TODO: Only retry so many times.
+        return setTimeout(returnFile, 50, filePath, del, cb);
+    }
+    
+    cb(false, data);
+    
+    if (del) {
+        try {
+            fs.unlink(filePath, function () {});
+        } catch (e) {}
+    }
+}
+
 
 function downloadURL(url, options, cb)
 {
     var downloadWindow;
     var contents;
+    var finished = false;
     
     /// Make options optional.
     if (typeof options === "function") {
@@ -102,6 +130,17 @@ function downloadURL(url, options, cb)
         options = {};
     } else {
         options = options || {};
+    }
+    
+    if (options.login && !isLoggedIn) {
+        return login(function (err, window)
+        {
+            if (err) {
+                console.error(err);
+            }
+            options.window = window;
+            downloadURL(url, options, cb);
+        });
     }
     
     if (options.window) {
@@ -114,10 +153,10 @@ function downloadURL(url, options, cb)
     if (options.tmp) {
         if (!options.path) {
             /// Create a temporary filename.
-            options.path = p.join(require("os").tmpdir(), "tmp-ue4-launcher-dl-" + Math.random() + "-" + Math.random());
+            options.path = p.join(os.tmpdir(), "tmp-ue4-launcher-dl-" + Math.random() + "-" + Math.random());
         }
     }
-    console.log(options)
+    
     contents.session.on('will-download', (event, item, webContents) => {
         // Set the save path, making Electron not to prompt a save dialog.
         if (options.path) {
@@ -145,11 +184,18 @@ function downloadURL(url, options, cb)
             }
         })
         item.once('done', (event, state) => {
-            var success = state === 'completed';
+            var success = (state === "completed");
             var filePath = item.getSavePath();
             
+            if (finished) {
+                return;
+            }
+            
+            finished = true;
+            
             if ((options.tmp || options.returnFile) && success) {
-                cb(!success, require("fs").readFileSync(filePath, "utf8"));
+                /// Because this may fail, it tries multiple times.
+                return returnFile(filePath, options.tmp, cb);
             } else {
                 cb(!success);
             }
@@ -177,9 +223,23 @@ function downloadURL(url, options, cb)
 
 
 
-function login(cb) {
+function login(cb)
+{
+    var contents;
+    
+    console.log("logging in")
+    
+    if (loginWindow) {
+        try {
+            loginWindow.close();
+        } catch (e) {}
+    }
+    
+    isLoggedIn = false;
+    
+    
     // Create the browser window.
-    var loginWindow = new BrowserWindow({
+    loginWindow = new BrowserWindow({
         width: 800,
         height: 800,
         /*
@@ -191,8 +251,8 @@ function login(cb) {
         show: true, /// Use FALSE for graceful loading
         title: "Unreal Engine Launcher"
     });
-    var contents = loginWindow.webContents;
-    var isLoggedIn = false;
+    contents = loginWindow.webContents;
+    
     // and load the index.html of the app.
     //loginWindow.loadFile("index.html")
     loginWindow.loadURL("https://www.unrealengine.com/login");
@@ -262,11 +322,14 @@ function login(cb) {
     }
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
     {
+        console.log("did-frame-navigate", url)
         if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
             onLogin();
         }
         //console.log("did-frame-navigate");
         //console.log(url, code, status, isMainFrame, frameProcessId, frameRoutingId);
+        /// Went here after logging out.
+        /// did-frame-navigate https://www.unrealengine.com/id/login?redirectUrl=https%3A%2F%2Fwww.unrealengine.com%2F&client_id=932e595bedb643d9ba56d3e1089a5c4b&noHostRedirect=true
     });
     contents.on("did-frame-finish-load", function (e, isMainFrame, frameProcessId, frameRoutingId)
     {
@@ -288,6 +351,12 @@ function login(cb) {
         console.log(title, explicitSet)
     });
     */
+    contents.on("page-title-updated", function (e, title, explicitSet)
+    {
+        console.log("page-title-updated", title, explicitSet)
+        ///TODO: Make sure it goes to the right page when logging out
+        ///page-title-updated Logging out... | Epic Games true
+    });
 }
 
 function createMainWindow()
@@ -308,7 +377,6 @@ function createMainWindow()
         title: "Unreal Engine Launcher"
     });
     var contents = mainWindow.webContents;
-    var isLoggedIn = false;
     // and load the index.html of the app.
     mainWindow.loadFile("pages/unreal_engine.html");
     
@@ -316,9 +384,75 @@ function createMainWindow()
     mainWindow.maximize();
 }
 
+function getVault(cb)
+{
+    var vault = [];
+    var dlCount = 25;
+    var dlTotal;
+    var dlIndex = 0;
+    //debugger;
+    (function loop()
+    {
+        var url;
+        
+        console.log(dlIndex);
+        //debugger;
+        if (dlTotal !== undefined && dlIndex >= dlTotal - 1) {
+            return cb(vault);
+        }
+        
+        url = "https://www.unrealengine.com/marketplace/api/assets/vault?start=" + dlIndex + "&count=" + dlCount;
+        
+        getJSON(url, {login: true}, function (err, data)
+        {
+            //debugger;
+            console.log(data);
+            if (err || !data || data.status !== "OK") {
+                console.error("Cannot download vault page: " + url)
+                if (data) {
+                    console.error(data);
+                }
+                ///TODO: Try again?
+            } else {
+                dlTotal = data.data.paging.total;
+                vault = vault.concat(data.data.elements);
+                dlIndex += dlCount;
+                loop();
+            }
+            //console.log(data);
+            //fs.writeFileSync(p.join(__dirname, "test.json"), JSON.stringify(data));
+        });
+    }());
+}
+
+function updateVault()
+{
+    if (offline) {
+        try {
+            vault = JSON.parse(fs.readFileSync(p.join(__dirname, "vault.json"), "utf8"));
+        } catch (e) {
+            vault = [];
+        }
+    }
+    
+    getVault(function (data)
+    {
+        vault = data;
+        /*
+        console.log(vault);
+        console.log(vault.length);
+        
+        */
+        
+        fs.writeFileSync(p.join(__dirname, "vault.json"), JSON.stringify(vault));
+    });
+}
+
 function startup()
 {
     createMainWindow();
+    
+    //updateVault();
     /*
     login(function ()
     {
@@ -346,6 +480,8 @@ function startup()
         });
     });
     */
+    /// Not logged in error.
+    // {"status":"Error","errorCode":"errors.com.epicgames.common.authentication.authentication_failed","args":null}
 }
 
 // This method will be called when Electron has finished
