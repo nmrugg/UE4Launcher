@@ -5,6 +5,7 @@ var os = require("os");
 var p = require("path");
 var spawn = require("child_process").spawn;
 var SHARED = require(p.join(__dirname, "..", "shared", "functions"));
+var ipc = require("electron").ipcRenderer;
 var getProjects = SHARED.getProjects;
 
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
@@ -72,7 +73,39 @@ function launchEngine(engine, project)
     }
 }
 
+function createVaultList()
+{
+    ipc.on("getVault", function (event, data)
+    {
+        var vault = JSON.parse(data);
+        var vaultEl = document.getElementById("vault");
+        console.log(vault);
+        
+        vault.forEach(function (item)
+        {
+            var container = document.createElement("div");
+            var img = document.createElement("div");
+            var title = document.createElement("div");
+            
+            container.className = "vault-item";
+            img.className = "vault-item-image";
+            img.style.backgroundImage = "url(\"" + (item.thumbnail) + "\")";
+            
+            title.className = "vault-item-title";
+            title.textContent = item.title;
+            
+            container.appendChild(img);
+            container.appendChild(title);
+            vaultEl.appendChild(container);
+        });
+    });
+    
+    ipc.send("getVault");
+}
+
 createProjectList();
+
+createVaultList();
 
 ///TEMP: Launch button
 document.getElementById("temp423Launch").onclick = function ()

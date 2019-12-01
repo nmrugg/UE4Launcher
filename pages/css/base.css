@@ -232,3 +232,22 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     overflow-x: hidden;
     cursor: pointer;
 }
+
+
+.vault-item {
+    display: inline-block;
+    width: 175px;
+    padding: 10px;
+}
+
+.vault-item-image {
+    width: 175px;
+    height: 175px;
+    display: inline-block;
+    background-repeat: no-repeat;
+    background-size: 175px;
+}
+
+.vault-item-title {
+    color: #eee;
+}

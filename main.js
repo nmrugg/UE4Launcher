@@ -425,7 +425,7 @@ function getVault(cb)
     }());
 }
 
-function updateVault()
+function updateVault(cb)
 {
     if (offline) {
         try {
@@ -433,19 +433,26 @@ function updateVault()
         } catch (e) {
             vault = [];
         }
+        if (cb) {
+            setImmediate(cb, vault);
+        }
+    } else {
+        getVault(function (data)
+        {
+            vault = data;
+            /*
+            console.log(vault);
+            console.log(vault.length);
+            
+            */
+            
+            fs.writeFileSync(p.join(__dirname, "vault.json"), JSON.stringify(vault));
+            
+            if (cb) {
+                cb(vault);
+            }
+        });
     }
-    
-    getVault(function (data)
-    {
-        vault = data;
-        /*
-        console.log(vault);
-        console.log(vault.length);
-        
-        */
-        
-        fs.writeFileSync(p.join(__dirname, "vault.json"), JSON.stringify(vault));
-    });
 }
 
 function startup()
@@ -522,3 +529,13 @@ ipc.on('synchronous-message', (event, arg) => {
   event.returnValue = 'pong'
 })
 */
+
+ipc.on("getVault", function (event, arg)
+{
+    console.log("getting vault");
+    
+    updateVault(function ()
+    {
+        event.reply("getVault", JSON.stringify(vault));
+    });
+});
