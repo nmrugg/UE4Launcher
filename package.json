@@ -9,10 +9,10 @@
   "keywords": [
     "UE4"
   ],
-  "author": "GitHub",
+  "author": "nmrugg@gmail.com",
   "license": "MIT",
   "devDependencies": {
     "electron": "=7.1.2",
-    "electron-packager": "^14.1.1"
+    "request": "=2.88.0"
   }
 }
