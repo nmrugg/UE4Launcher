@@ -371,13 +371,39 @@ function getItemBuildInfo(catalogItemId, appId, cb)
     
     request.get(opts, function(err, res, body)
     {
+        var itemBuildInfo;
+        
+        if (err || res.statusCode !== 200) {
+            console.error(err);
+            cb(err || res);
+        } else {
+            itemBuildInfo = JSON.parse(body);
+            cb(null, itemBuildInfo);
+        }
+    });
+}
+
+function getItemManifest(itemBuildInfo, cb)
+{
+    var opts = {
+        uri: itemBuildInfo.items.MANIFEST.distribution + itemBuildInfo.items.MANIFEST.path,
+        headers: {
+            Origin: "allar_ue4_marketplace_commandline",
+            "User-Agent": "game=UELauncher, engine=UE4, build=allar_ue4_marketplace_commandline"
+        },
+        qs: {
+            label: "Live"
+        },
+    };
+    
+    request.get(opts, function(err, res, body)
+    {
         var manifest;
         
         if (err || res.statusCode !== 200) {
             console.error(err);
             cb(err || res);
         } else {
-            console.log(body);
             manifest = JSON.parse(body);
             cb(null, manifest);
         }
@@ -393,9 +419,14 @@ login(null, null, function ondone()
     {
         var versions = getItemVersions(assetInfo);
         console.log("Getting build info...");
-        getItemBuildInfo(id, versions[0].appId, function (err, manifest)
+        getItemBuildInfo(id, versions[0].appId, function (err, itemBuildInfo)
         {
-            console.log(manifest);
+            //console.log(manifest);
+            console.log("Getting item manifest...");
+            getItemManifest(itemBuildInfo, function (err, manifest)
+            {
+                //console.log(manifest);
+            });
         });
     });
     
