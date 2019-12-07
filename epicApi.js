@@ -410,6 +410,55 @@ function getItemManifest(itemBuildInfo, cb)
     });
 }
 
+var hexChars = ["0", "1", "2", "3", "4", "5", "6", "7","8", "9", "A", "B", "C", "D", "E", "F"];
+
+function byteToHex(b)
+{
+  return hexChars[(b >> 4) & 0x0f] + hexChars[b & 0x0f];
+}
+
+// Takes hash of 24-character decimal form (8 * 3char) and outputs 16-character hex in reverse byte order
+function chunkHashToReverseHexEncoding(chunkHash)
+{
+    var outHex = "";
+    var i;
+    
+    for (i = 0; i < 8; ++i) {
+        outHex = byteToHex(parseInt(chunkHash.substring(i * 3, i * 3 + 3))) + outHex;
+    }
+    return outHex;
+}
+
+function buildItemChunkListFromManifest(manifest)
+{
+    // Build chunk URL list
+    var chunks = [];
+    var chunk;
+    var hash;
+    var group;
+    var filename;
+    //Ref: https://download.epicgames.com/Builds/Rocket/Automated/MagicEffects411/CloudDir/ChunksV3/22/AAC7EF867364B218_CE3BE4D54E7B4ECE663C8EAC2D8929D6.chunk
+    ///TODO: Use domain from manifest
+    var chunkBaseURL = "http://download.epicgames.com/Builds/Rocket/Automated/" + manifest.AppNameString + "/CloudDir/ChunksV3/";
+    for (chunk in manifest.ChunkHashList) {
+        hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[chunk]);
+        ///I Think I can just do manifest.DataGroupList[chunk].substr(1);
+        group = String(Number(manifest.DataGroupList[chunk]));
+        if (group.length < 2) {
+            group = "0" + group;
+        }
+        filename = chunk + ".chunk";
+        chunks.push({
+            guid: chunk,
+            hash: hash,
+            //sha: manifest.ChunkShaList[chunk],
+            //fileSize: manifest.ChunkFilesizeList[chunk],
+            url: chunkBaseURL + group + "/" + hash + "_" + filename,
+            filename: filename,
+        });
+    }
+    return chunks;
+}
 login(null, null, function ondone()
 {
     var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
