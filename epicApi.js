@@ -300,7 +300,6 @@ var login = (function ()
 function getAssetInfo(catalogItemId, cb)
 {
     var opts = {
-        // From launcher: https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/bulk/items?id=5e0f8343b8cd44a0817214ab0d39847f&country=US&locale=en-US
         uri: "https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/bulk/items",
         headers: {
             Authorization: "bearer " + epicOauth.access_token,
@@ -312,37 +311,92 @@ function getAssetInfo(catalogItemId, cb)
             country: "US",
             locale: "en-US",
         },
-        //pool: slowRequestPool
     };
     
     request.get(opts, function(err, res, body)
     {
-        var itemInfo;
+        var assetInfo;
         
         if (err || res.statusCode !== 200) {
             console.error(err);
-            cb(err);
+            cb(err || res);
         } else {
-            itemInfo = JSON.parse(body);
-            
-            /*
-            console.log(body);
-            console.log("-------");
-            */
-            //console.log(itemInfo);
-            cb(itemInfo[catalogItemId]);
+            assetInfo = JSON.parse(body);
+            cb(null, assetInfo[catalogItemId]);
         }
     });
 }
 
+function getItemVersions(itemInfo)
+{
+    var versions = [];
+    
+    itemInfo.releaseInfo.forEach(function oneachRelease(releaseInfo)
+    {
+        if (releaseInfo.compatibleApps) {
+            releaseInfo.compatibleApps.forEach(function oneachApp(compatibleApp)
+            {
+                var minorVersion = Number(compatibleApp.substr(5)); /// Cut off "UE_4."
+                versions.push({
+                    title: "4." + minorVersion,
+                    appId: releaseInfo.appId,
+                    version: compatibleApp,
+                    minorVersion: minorVersion,
+                });
+            });
+        }
+    });
+    // Sorts latest version first
+    versions.sort(function reverseNumberSort(a, b)
+    {
+        return b.minorVersion - a.minorVersion;
+    });
+    return versions;
+}
+
+function getItemBuildInfo(catalogItemId, appId, cb)
+{
+    var opts = {
+        // From launcher: https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/cd2c274e32764e4b9bba09115e732fde/MagicEffects411?label=Live
+        uri: "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/" + catalogItemId + "/" + appId,
+        headers: {
+            Authorization: "bearer " + epicOauth.access_token,
+            Origin: "allar_ue4_marketplace_commandline",
+            "User-Agent": "game=UELauncher, engine=UE4, build=allar_ue4_marketplace_commandline"
+        },
+        qs: {
+            label: "Live"
+        },
+    };
+    
+    request.get(opts, function(err, res, body)
+    {
+        var manifest;
+        
+        if (err || res.statusCode !== 200) {
+            console.error(err);
+            cb(err || res);
+        } else {
+            console.log(body);
+            manifest = JSON.parse(body);
+            cb(null, manifest);
+        }
+    });
+}
 
 login(null, null, function ondone()
 {
     var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
     
-    getAssetInfo(id, function (data)
+    console.log("Getting asset info...");
+    getAssetInfo(id, function (err, assetInfo)
     {
-        console.log(data);
+        var versions = getItemVersions(assetInfo);
+        console.log("Getting build info...");
+        getItemBuildInfo(id, versions[0].appId, function (err, manifest)
+        {
+            console.log(manifest);
+        });
     });
     
 }, function onerror(err, message)
