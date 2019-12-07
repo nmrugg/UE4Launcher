@@ -325,10 +325,12 @@ function getAssetInfo(catalogItemId, cb)
         } else {
             itemInfo = JSON.parse(body);
             
+            /*
             console.log(body);
             console.log("-------");
+            */
             //console.log(itemInfo);
-            cb(itemInfo);
+            cb(itemInfo[catalogItemId]);
         }
     });
 }
