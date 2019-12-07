@@ -1,5 +1,7 @@
 "use strict";
 
+var fs = require("fs");
+var p = require("path");
 var request = require("request");
 
 var fakeJar = {};
@@ -410,6 +412,8 @@ function getItemManifest(itemBuildInfo, cb)
     });
 }
 
+
+
 var hexChars = ["0", "1", "2", "3", "4", "5", "6", "7","8", "9", "A", "B", "C", "D", "E", "F"];
 
 function byteToHex(b)
@@ -451,6 +455,7 @@ function buildItemChunkListFromManifest(manifest)
         chunks.push({
             guid: chunk,
             hash: hash,
+            group: group,
             //sha: manifest.ChunkShaList[chunk],
             //fileSize: manifest.ChunkFilesizeList[chunk],
             url: chunkBaseURL + group + "/" + hash + "_" + filename,
@@ -459,6 +464,129 @@ function buildItemChunkListFromManifest(manifest)
     }
     return chunks;
 }
+
+function downloadChunks(appId, chunks, ondone, onerror, onprogress)
+{
+    var concurrent = 4;
+    var len = chunks.length;
+    var hasFinished = false;
+    var j;
+    var appBasePath = p.join(__dirname, "downloads", appId);
+    var chunksBasePath = p.join(appBasePath, "chunks");
+    
+    function isAllDone()
+    {
+        var i;
+        if (!hasFinished) {
+            for (i = 0; i < len; ++i) {
+                if (chunks[i].downloadStatus !== 2) {
+                    return false;
+                }
+            }
+            
+            /// Make sure it won't get triggered twice.
+            hasFinished = true;
+            /// Done!
+            ondone();
+        }
+    }
+    
+    function downloadChunk(i)
+    {
+        var chunk;
+        var dir;
+        var path;
+        var opts;
+        
+        if (i >= len) {
+            return isAllDone();
+        }
+        
+        chunk = chunks[i];
+        
+        if (chunk.downloadStatus) {
+            return setImmediate(downloadChunk, ++i);
+        }
+        
+        dir = p.join(chunksBasePath, chunk.group);
+        
+        path = p.join(dir, chunk.hash + "_" + chunk.filename);
+        
+        if (fs.existsSync(path)) {
+            chunk.downloadStatus = 2; /// Downloaded
+            return setImmediate(downloadChunk, ++i);
+        }
+        
+        chunk.downloadStatus = 1; /// Downloading
+        
+        try {
+            fs.mkdirSync(dir);
+        } catch (e) {}
+        
+        opts = {
+            url: chunk.url,
+            encoding: null,
+        };
+        
+        console.log("Downloading " + (i + 1) + " of " + len + " " + chunk.url);
+        
+        request.get(opts, function(err, res, body)
+        {
+            var manifest;
+            
+            if (err || res.statusCode >= 400) {
+                console.error(err);
+                ///TODO: Stop? Retry?
+                onerror(err);
+            } else {
+                console.log("Downloaded " + (i + 1) + " (" + Math.round(((i + 1) / len) * 100) + "%)");
+                fs.writeFile(path, body, function (err)
+                {
+                    if (err) {
+                        console.error(err);
+                        ///TODO: Stop? Retry?
+                        onerror(err);
+                    } else {
+                        chunk.downloadStatus = 2; /// Downloaded
+                        downloadChunk(++i);
+                    }
+                });
+            }
+        });
+    }
+    
+    try {
+        fs.mkdirSync(p.join(__dirname, "downloads"));
+    } catch (e) {}
+    try {
+        fs.mkdirSync(appBasePath);
+    } catch (e) {}
+    try {
+        fs.mkdirSync(chunksBasePath);
+    } catch (e) {}
+    
+    for (j = 0; j < concurrent; ++j) {
+        downloadChunk(j);
+    }
+}
+
+
+var manifest = require("./etc/manifest-formated.json");
+var chunks = buildItemChunkListFromManifest(manifest);
+downloadChunks(manifest.AppNameString, chunks, function ondone()
+{
+    console.log("done!");
+}, function onerror(err)
+{
+    console.error(err);
+}, function onprogress(percent)
+{
+    console.log(Math.round(percent * 100) + "%");
+})
+
+
+return;
+
 login(null, null, function ondone()
 {
     var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
