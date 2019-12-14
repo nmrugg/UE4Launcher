@@ -658,112 +658,6 @@ function deleteDir(path)
     }
 }
 
-function extractAssetFromChunks(manifest, chunks, ondone, onerror, onprogress)
-{
-    var appBasePath = p.join(__dirname, "downloads", manifest.AppNameString);
-    var chunksBasePath = p.join(appBasePath, "chunks");
-    var extractDir = p.join(appBasePath, "extracted");
-    
-    deleteDir(extractDir);
-    
-    fs.mkdirSync(extractDir);
-    
-    /*
-    rimraf.sync(extractDir + '*.*'); // Purge chunk folder
-    mkdirp.sync(extractDir) // Ensure path exists after purge
-    */
-
-    console.log("Fixing up chunk files...");
-    /*
-    var chunkFiles = fs.readdirSync(chunkDir);
-
-    // strip chunk hashes from files, we do this to make some code simpler at the cost of IO
-    var bar = new ProgressBar('Fixing Up Chunk Files: Progress: (:current / :totalMB) :bar :percent Completed. (ETA: :eta seconds)', {total: chunkFiles.length});
-    chunkFiles.forEach((file) => {
-        fs.renameSync(chunkDir + file, chunkDir + file.substring(17));
-        bar.tick();
-    });
-    */
-    
-    // Get renamed list of files
-    chunkFiles = fs.readdirSync(chunkDir);
-
-    console.log("Decompressing files...");
-
-    // decompress chunk files
-    //bar = new ProgressBar('Decompressing Chunk Files: Progress: (:current / :totalMB) :bar :percent Completed. (ETA: :eta seconds)', {total: chunkFiles.length});
-    chunkFiles.forEach( (chunkFileName) => {
-        var file = fs.openSync(chunkDir + chunkFileName, 'r');
-
-        // We need to first read a chunk's header to find out where data begins and if its compressed
-        // Header details can be found in Engine\Source\Runtime\Online\BuildPatchServices\Private\BuildPatchChunk.cpp
-        // Header size is stored in the 9th byte (index 8)
-        // Whether a file is compressed is always at header byte 41 (index 0)
-        var headerBuffer = new Buffer(41);
-        fs.readSync(file, headerBuffer, 0, 41, 0);
-
-        var headerSize = headerBuffer[8];
-        var compressed = (headerBuffer[40] == 1);
-
-        var stats = fs.statSync(chunkDir + chunkFileName);
-        var chunkBuffer = new Buffer(stats['size'] - headerSize);
-        fs.readSync(file, chunkBuffer, 0, stats['size']-headerSize, headerSize);
-        fs.closeSync(file);
-
-        if (compressed) {
-            fs.writeFileSync(chunkDir + chunkFileName, zlib.unzipSync(chunkBuffer));
-        } else {
-            fs.writeFileSync(chunkDir + chunkFileName, chunkBuffer);
-        }
-
-        headerBuffer = null;
-        chunkBuffer = null;
-
-        //bar.tick();
-    });
-
-    // Extract assets from chunks
-    bar = new ProgressBar('Extracting Asset Files: Progress: (:current / :total) :bar :percent Completed. (ETA: :eta seconds)', {total: manifest.FileManifestList.length});
-    manifest.FileManifestList.forEach( (fileList) => {
-        var fileSize = 0;
-        var fileName = p.join(extractDir, fileList.Filename);
-        var fileDir = fileName.substring(0, fileName.lastIndexOf('/'));
-        mkdirp.sync(fileDir); // Create asset file folder if it doesn't exist
-
-        // Calculate total asset file size
-        fileList.FileChunkParts.forEach( (chunkPart) => {
-            fileSize += parseInt('0x'+ChunkHashToReverseHexEncoding(chunkPart.Size));
-        });
-
-        var buffer = new Buffer(fileSize);
-        var bufferOffset = 0;
-
-        // Start reading chunk data and assembling it into a buffer
-        fileList.FileChunkParts.forEach( (chunkPart) => {
-            var chunkGuid = chunkPart.Guid;
-            var chunkOffset = parseInt('0x'+ChunkHashToReverseHexEncoding(chunkPart.Offset));
-            var chunkSize = parseInt('0x'+ChunkHashToReverseHexEncoding(chunkPart.Size));
-
-            var file = fs.openSync(chunkDir + chunkGuid + '.chunk', 'r');
-            fs.readSync(file, buffer, bufferOffset, chunkSize, chunkOffset);
-            fs.closeSync(file);
-            bufferOffset += chunkSize;
-        });
-
-        // Write out the assembled buffer
-        fs.writeFileSync(fileName, buffer);
-        buffer = null;
-        bar.tick();
-    });
-
-    console.log("Removing chunk files.");
-    rimraf.sync(chunkDir + "*.*"); // Remove no-longer needed chunk dir
-
-    if (cb != undefined) {
-        cb(true);
-    }
-}
-
 function mkdirs(dir, relBase)
 {
     var pathToCreate = p.relative(relBase, dir);
@@ -851,11 +745,12 @@ function extractChunks(manifest, ondone, onerror, onprogress)
         fs.writeFileSync(fileName, buffer);
         
         setImmediate(loop, i + 1);
+        ///TODO: Progress
     }(0));
 }
 
 
-
+/*
 var manifest = require("./etc/manifest-formated.json");
 var chunks = buildItemChunkListFromManifest(manifest);
 downloadChunks(manifest, chunks, function ondone()
@@ -879,14 +774,16 @@ downloadChunks(manifest, chunks, function ondone()
 }, function onprogress(percent)
 {
     console.log(Math.round(percent * 100) + "%");
-})
-
+});
 
 return;
+*/
 
 login(null, null, function ondone()
 {
-    var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
+    //var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
+    //var id = "be35e1818bc0425bbe957b8f642dc43e"; /// Gideon
+    var id = "d64e30482a3046318029240b276cbd72"; // "Free Fantasy Weapon Sample Pack"
     
     console.log("Getting asset info...");
     getAssetInfo(id, function (err, assetInfo)
@@ -895,11 +792,36 @@ login(null, null, function ondone()
         console.log("Getting build info...");
         getItemBuildInfo(id, versions[0].appId, function (err, itemBuildInfo)
         {
-            //console.log(manifest);
             console.log("Getting item manifest...");
             getItemManifest(itemBuildInfo, function (err, manifest)
             {
-                //console.log(manifest);
+                ///TODO: It's important to store the manifest file on the hard drive because it seems to block you from downloading it multiple times.
+                ///      Should store each step.
+                var chunks = buildItemChunkListFromManifest(manifest);
+                
+                console.log("Downloading chunks...");
+                downloadChunks(manifest, chunks, function ondone()
+                {
+                    console.log("Downloaded chunks!")
+                    extractChunks(manifest, function ondone()
+                    {
+                        ///TODO: Delete chunks
+                        ///      Move files
+                        console.log("Extracted chunks!")
+                    }, function onerror(err)
+                    {
+                        console.error(err);
+                    }, function onprogress(percent)
+                    {
+                        console.log(Math.round(percent * 100) + "%");
+                    });
+                }, function onerror(err)
+                {
+                    console.error(err);
+                }, function onprogress(percent)
+                {
+                    console.log(Math.round(percent * 100) + "%");
+                });
             });
         });
     });
