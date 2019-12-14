@@ -226,7 +226,9 @@ var login = (function ()
             },
         };
         
-        onprogress(5, "Getting OAuth exchange code...", totalSteps);
+        if (onprogress) {
+            onprogress(5, "Getting OAuth exchange code...", totalSteps);
+        }
         
         request.get(opts, function(err, res, body)
         {
@@ -236,21 +238,31 @@ var login = (function ()
                 json = JSON.parse(body);
                 epicOauth.code = json.code;
                 
-                onprogress(6, "Got OAuth exchange code", totalSteps);
+                if (onprogress) {
+                    onprogress(6, "Got OAuth exchange code", totalSteps);
+                }
                 
                 // Grab our SSO token
                 if (epicSSO === undefined) {
                     getSSOWithOAuthCode(ondone, onerror, onprogress);
                 } else {
-                    onprogress(7, "Successfully authorized", totalSteps);
-                    ondone();
+                    if (onprogress) {
+                        onprogress(7, "Successfully authorized", totalSteps);
+                    }
+                    if (ondone) {
+                        ondone();
+                    }
                     /// Prevent the functions from being triggerd again.
                     ondone = onerror = onprogress = function () {};
                 }
                 // renew our token before it expires
                 setTimeout(oAuthExchange, 250 * 1000).unref();
             } else {
-                onerror(err, "OAuth renew failed: " + JSON.stringify(res, "", "  "))
+                if (onerror) {
+                    onerror(err, "OAuth renew failed: " + JSON.stringify(res, "", "  "))
+                } else {
+                    console.error(err, "OAuth renew failed: " + JSON.stringify(res, "", "  "));
+                }
             }
         });
     }
@@ -271,7 +283,9 @@ var login = (function ()
             }
         };
         
-        onprogress(6, "Getting SSO code...", totalSteps);
+        if (onprogress) {
+            onprogress(6, "Getting SSO code...", totalSteps);
+        }
         
         request.get(opts, function(err, res, body)
         {
@@ -279,13 +293,20 @@ var login = (function ()
             //updateFakeJar(res.headers["set-cookie"]);
             
             if (!err && res.statusCode == 302) {
-                onprogress(7, "Successfully authorized", totalSteps);
-                ondone();
+                if (onprogress) {
+                    onprogress(7, "Successfully authorized", totalSteps);
+                }
+                if (ondone) {
+                    ondone();
+                }
                 /// Prevent the functions from being triggerd again.
                 ondone = onerror = onprogress = function () {};
             } else {
-                //console.log(res)
-                onerror(err, "Failed to authorize");
+                if (onerror) {
+                    onerror(err, "Failed to authorize");
+                } else {
+                    console.error(err, "Failed to authorize");
+                }
             }
         });
     }
