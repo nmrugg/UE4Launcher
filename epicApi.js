@@ -3,6 +3,8 @@
 var fs = require("fs");
 var p = require("path");
 var request = require("request");
+var zlib = require("zlib");
+var crypto = require("crypto");
 
 var fakeJar = {};
 var epicOauth;
@@ -437,27 +439,27 @@ function buildItemChunkListFromManifest(manifest)
 {
     // Build chunk URL list
     var chunks = [];
-    var chunk;
+    var guid;
     var hash;
     var group;
     var filename;
     //Ref: https://download.epicgames.com/Builds/Rocket/Automated/MagicEffects411/CloudDir/ChunksV3/22/AAC7EF867364B218_CE3BE4D54E7B4ECE663C8EAC2D8929D6.chunk
     ///TODO: Use domain from manifest
     var chunkBaseURL = "http://download.epicgames.com/Builds/Rocket/Automated/" + manifest.AppNameString + "/CloudDir/ChunksV3/";
-    for (chunk in manifest.ChunkHashList) {
-        hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[chunk]);
-        ///I Think I can just do manifest.DataGroupList[chunk].substr(1);
-        group = String(Number(manifest.DataGroupList[chunk]));
+    for (guid in manifest.ChunkHashList) {
+        hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
+        ///I Think I can just do manifest.DataGroupList[guid].substr(1);
+        group = String(Number(manifest.DataGroupList[guid]));
         if (group.length < 2) {
             group = "0" + group;
         }
-        filename = chunk + ".chunk";
+        filename = guid + ".chunk";
         chunks.push({
-            guid: chunk,
+            guid: guid,
             hash: hash,
             group: group,
-            //sha: manifest.ChunkShaList[chunk],
-            //fileSize: manifest.ChunkFilesizeList[chunk],
+            //sha: manifest.ChunkShaList[guid],
+            //fileSize: manifest.ChunkFilesizeList[guid],
             url: chunkBaseURL + group + "/" + hash + "_" + filename,
             filename: filename,
         });
@@ -465,21 +467,29 @@ function buildItemChunkListFromManifest(manifest)
     return chunks;
 }
 
-function downloadChunks(appId, chunks, ondone, onerror, onprogress)
+function isHashCorrect(data, expectedHash)
 {
+    return crypto.createHash("sha1").update(data).digest("hex").toUpperCase() === expectedHash;
+}
+
+function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
+{
+    var appId = manifest.AppNameString;
     var concurrent = 4;
     var len = chunks.length;
     var hasFinished = false;
     var j;
     var appBasePath = p.join(__dirname, "downloads", appId);
     var chunksBasePath = p.join(appBasePath, "chunks");
+    var downloading = 1;
+    var downloaded = 2;
     
     function isAllDone()
     {
         var i;
         if (!hasFinished) {
             for (i = 0; i < len; ++i) {
-                if (chunks[i].downloadStatus !== 2) {
+                if (chunks[i].downloadStatus !== downloaded) {
                     return false;
                 }
             }
@@ -510,14 +520,23 @@ function downloadChunks(appId, chunks, ondone, onerror, onprogress)
         
         dir = p.join(chunksBasePath, chunk.group);
         
+        //path = p.join(dir, chunk.hash + "_" + chunk.filename + "X");
         path = p.join(dir, chunk.hash + "_" + chunk.filename);
         
         if (fs.existsSync(path)) {
-            chunk.downloadStatus = 2; /// Downloaded
+            chunk.downloadStatus = downloaded;
+            /*
+            ///TEMP:
+            if (!isHashCorrect(fs.readFileSync(path), manifest.ChunkShaList[chunk.guid])) {
+                console.log("Bad hash");
+                console.log(chunk);
+                process.exit();
+            }
+            */
             return setImmediate(downloadChunk, ++i);
         }
         
-        chunk.downloadStatus = 1; /// Downloading
+        chunk.downloadStatus = downloading;
         
         try {
             fs.mkdirSync(dir);
@@ -525,32 +544,56 @@ function downloadChunks(appId, chunks, ondone, onerror, onprogress)
         
         opts = {
             url: chunk.url,
-            encoding: null,
+            encoding: null, /// Download the file with binary encoding
         };
         
         console.log("Downloading " + (i + 1) + " of " + len + " " + chunk.url);
         
+        // ///HACK: TEMP so that we don't have to redownload
+        // var pathFake = p.join(dir, chunk.hash + "_" + chunk.filename);
+        // fs.readFile(pathFake, null, function(err, body)
         request.get(opts, function(err, res, body)
         {
-            var manifest;
+            // ///HACK: TEMP
+            // var res = {statusCode: 200};
+            
+            var headerSize;
+            var compressed;
+            
+            function onWrite(err)
+            {
+                if (err) {
+                    console.error(err);
+                    ///TODO: Stop? Retry?
+                    onerror(err);
+                } else {
+                    console.log("Downloaded " + (i + 1) + " (" + Math.round(((i + 1) / len) * 100) + "%)");
+                    chunk.downloadStatus = downloaded;
+                    downloadChunk(++i);
+                }
+            }
             
             if (err || res.statusCode >= 400) {
                 console.error(err);
                 ///TODO: Stop? Retry?
                 onerror(err);
             } else {
-                console.log("Downloaded " + (i + 1) + " (" + Math.round(((i + 1) / len) * 100) + "%)");
-                fs.writeFile(path, body, function (err)
-                {
-                    if (err) {
-                        console.error(err);
-                        ///TODO: Stop? Retry?
-                        onerror(err);
-                    } else {
-                        chunk.downloadStatus = 2; /// Downloaded
-                        downloadChunk(++i);
-                    }
-                });
+                
+                headerSize = body[8];
+                compressed = (body[40] === 1);
+                
+                if (compressed) {
+                    console.log("unzipping")
+                    zlib.unzip(body.slice(headerSize), function onUnzip(err, result)
+                    {
+                        ///TODO: Compare sha1 hash in ChunkShaList
+                        fs.writeFile(path, result, onWrite);
+                    });
+                } else {
+                    console.log("uncompressed")
+                    ///TODO: Compare sha1 hash in ChunkShaList
+                    fs.writeFile(path, body.slice(headerSize), onWrite);
+                }
             }
         });
     }
@@ -570,12 +613,241 @@ function downloadChunks(appId, chunks, ondone, onerror, onprogress)
     }
 }
 
+function deleteDir(path)
+{
+    var i;
+    var dirs;
+    var curPath;
+    
+    if (fs.existsSync(path)) {
+        dirs = fs.readdirSync(path);
+        for (i = dirs.length - 1; i>= 0; --i) {
+            curPath = p.join(path, dirs[i]);
+            if (fs.lstatSync(curPath).isDirectory()) {
+                deleteDir(curPath);
+            } else {
+                fs.unlinkSync(curPath);
+            }
+        }
+        fs.rmdirSync(path);
+    }
+}
+
+function extractAssetFromChunks(manifest, chunks, ondone, onerror, onprogress)
+{
+    var appBasePath = p.join(__dirname, "downloads", manifest.AppNameString);
+    var chunksBasePath = p.join(appBasePath, "chunks");
+    var extractDir = p.join(appBasePath, "extracted");
+    
+    deleteDir(extractDir);
+    
+    fs.mkdirSync(extractDir);
+    
+    /*
+    rimraf.sync(extractDir + '*.*'); // Purge chunk folder
+    mkdirp.sync(extractDir) // Ensure path exists after purge
+    */
+
+    console.log("Fixing up chunk files...");
+    /*
+    var chunkFiles = fs.readdirSync(chunkDir);
+
+    // strip chunk hashes from files, we do this to make some code simpler at the cost of IO
+    var bar = new ProgressBar('Fixing Up Chunk Files: Progress: (:current / :totalMB) :bar :percent Completed. (ETA: :eta seconds)', {total: chunkFiles.length});
+    chunkFiles.forEach((file) => {
+        fs.renameSync(chunkDir + file, chunkDir + file.substring(17));
+        bar.tick();
+    });
+    */
+    
+    // Get renamed list of files
+    chunkFiles = fs.readdirSync(chunkDir);
+
+    console.log("Decompressing files...");
+
+    // decompress chunk files
+    //bar = new ProgressBar('Decompressing Chunk Files: Progress: (:current / :totalMB) :bar :percent Completed. (ETA: :eta seconds)', {total: chunkFiles.length});
+    chunkFiles.forEach( (chunkFileName) => {
+        var file = fs.openSync(chunkDir + chunkFileName, 'r');
+
+        // We need to first read a chunk's header to find out where data begins and if its compressed
+        // Header details can be found in Engine\Source\Runtime\Online\BuildPatchServices\Private\BuildPatchChunk.cpp
+        // Header size is stored in the 9th byte (index 8)
+        // Whether a file is compressed is always at header byte 41 (index 0)
+        var headerBuffer = new Buffer(41);
+        fs.readSync(file, headerBuffer, 0, 41, 0);
+
+        var headerSize = headerBuffer[8];
+        var compressed = (headerBuffer[40] == 1);
+
+        var stats = fs.statSync(chunkDir + chunkFileName);
+        var chunkBuffer = new Buffer(stats['size'] - headerSize);
+        fs.readSync(file, chunkBuffer, 0, stats['size']-headerSize, headerSize);
+        fs.closeSync(file);
+
+        if (compressed) {
+            fs.writeFileSync(chunkDir + chunkFileName, zlib.unzipSync(chunkBuffer));
+        } else {
+            fs.writeFileSync(chunkDir + chunkFileName, chunkBuffer);
+        }
+
+        headerBuffer = null;
+        chunkBuffer = null;
+
+        //bar.tick();
+    });
+
+    // Extract assets from chunks
+    bar = new ProgressBar('Extracting Asset Files: Progress: (:current / :total) :bar :percent Completed. (ETA: :eta seconds)', {total: manifest.FileManifestList.length});
+    manifest.FileManifestList.forEach( (fileList) => {
+        var fileSize = 0;
+        var fileName = p.join(extractDir, fileList.Filename);
+        var fileDir = fileName.substring(0, fileName.lastIndexOf('/'));
+        mkdirp.sync(fileDir); // Create asset file folder if it doesn't exist
+
+        // Calculate total asset file size
+        fileList.FileChunkParts.forEach( (chunkPart) => {
+            fileSize += parseInt('0x'+ChunkHashToReverseHexEncoding(chunkPart.Size));
+        });
+
+        var buffer = new Buffer(fileSize);
+        var bufferOffset = 0;
+
+        // Start reading chunk data and assembling it into a buffer
+        fileList.FileChunkParts.forEach( (chunkPart) => {
+            var chunkGuid = chunkPart.Guid;
+            var chunkOffset = parseInt('0x'+ChunkHashToReverseHexEncoding(chunkPart.Offset));
+            var chunkSize = parseInt('0x'+ChunkHashToReverseHexEncoding(chunkPart.Size));
+
+            var file = fs.openSync(chunkDir + chunkGuid + '.chunk', 'r');
+            fs.readSync(file, buffer, bufferOffset, chunkSize, chunkOffset);
+            fs.closeSync(file);
+            bufferOffset += chunkSize;
+        });
+
+        // Write out the assembled buffer
+        fs.writeFileSync(fileName, buffer);
+        buffer = null;
+        bar.tick();
+    });
+
+    console.log("Removing chunk files.");
+    rimraf.sync(chunkDir + "*.*"); // Remove no-longer needed chunk dir
+
+    if (cb != undefined) {
+        cb(true);
+    }
+}
+
+function mkdirs(dir, relBase)
+{
+    var pathToCreate = p.relative(relBase, dir);
+    var parts;
+    var path;
+    var len;
+    var i;    
+    
+    if (pathToCreate) {
+        parts = pathToCreate.split(p.sep);
+        len = parts.length;
+        path = relBase;
+        for (i = 0; i < len; ++i) {
+            try {
+                path = p.join(path, parts.shift());
+                fs.mkdirSync(path);
+            } catch (e) {}
+        }
+    }
+}
+
+function extractChunks(manifest, ondone, onerror, onprogress)
+{
+    var chunkBasePath = p.join(__dirname, "downloads", manifest.AppNameString, "chunks");
+    var extractedBasePath = p.join(__dirname, "downloads", manifest.AppNameString, "extracted");
+    var fullFileList = manifest.FileManifestList;
+    var filesCount = fullFileList.length;
+    
+    try {
+        fs.mkdirSync(extractedBasePath);
+    } catch (e) {}
+    
+    (function loop(i)
+    {
+        if (i >= filesCount) {
+            return ondone();
+        }
+        
+        var fileList = fullFileList[i]; /// Rename to chunkList?
+        var fileSize = 0;
+        var fileName = p.join(extractedBasePath, fileList.Filename);
+        
+        if (p.dirname(fileName) === "/storage/UE4Launcher/downloads/Brushify9af8943b537aV1/extracted/Content/Brushify/DistanceMeshes/Mountain_Generic_01") debugger;
+        
+        mkdirs(p.dirname(fileName), extractedBasePath);
+        
+        fileList.FileChunkParts.forEach(function (chunkPart)
+        {
+            fileSize += parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
+        });
+        
+        console.log(fileList)
+        console.log(fileSize)
+        console.log(fileName)
+        
+        var buffer = Buffer.alloc(fileSize);
+        var bufferOffset = 0;
+        
+        // Start reading chunk data and assembling it into a buffer
+        fileList.FileChunkParts.forEach(function (chunkPart)
+        {
+            var guid = chunkPart.Guid;
+            var offset = parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Offset));
+            var size   = parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
+            var hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
+            var group = String(Number(manifest.DataGroupList[guid]));
+            var chunkPath;
+            var file;
+            
+            if (group.length < 2) {
+                group = "0" + group;
+            }
+            
+            chunkPath = p.join(chunkBasePath, group, hash + "_" + guid + ".chunk");
+            
+            file = fs.openSync(chunkPath, "r");
+            
+            fs.readSync(file, buffer, bufferOffset, size, offset);
+            fs.closeSync(file);
+            bufferOffset += size;
+        });
+        
+        // Write out the assembled buffer
+        console.log(fileName)
+        fs.writeFileSync(fileName, buffer);
+        
+        setImmediate(loop, i + 1);
+    }(0));
+}
+
+
 
 var manifest = require("./etc/manifest-formated.json");
 var chunks = buildItemChunkListFromManifest(manifest);
-downloadChunks(manifest.AppNameString, chunks, function ondone()
+downloadChunks(manifest, chunks, function ondone()
 {
-    console.log("done!");
+    console.log("Downloaded chunks!")
+    extractChunks(manifest, function ondone()
+    {
+        ///TODO: Delete chunks
+        ///      Move files
+        console.log("Extracted chunks!")
+    }, function onerror(err)
+    {
+        console.error(err);
+    }, function onprogress(percent)
+    {
+        console.log(Math.round(percent * 100) + "%");
+    });
 }, function onerror(err)
 {
     console.error(err);
