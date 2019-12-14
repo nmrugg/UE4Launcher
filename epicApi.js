@@ -387,25 +387,41 @@ function getItemBuildInfo(catalogItemId, appId, cb)
     });
 }
 
-function getItemManifest(itemBuildInfo, cb)
+function getItemManifest(itemBuildInfo, cb, useAuth)
 {
     var opts = {
-        uri: itemBuildInfo.items.MANIFEST.distribution + itemBuildInfo.items.MANIFEST.path,
+        uri: itemBuildInfo.items.MANIFEST.distribution + itemBuildInfo.items.MANIFEST.path + "?" + itemBuildInfo.items.MANIFEST.signature,
         headers: {
             Origin: "allar_ue4_marketplace_commandline",
-            "User-Agent": "game=UELauncher, engine=UE4, build=allar_ue4_marketplace_commandline"
+            "User-Agent": "game=UELauncher, engine=UE4, build=allar_ue4_marketplace_commandline",
+            Accept: "*/*",
         },
         qs: {
             label: "Live"
         },
     };
     
+    if (useAuth) {
+        opts.headers.Authorization = "bearer " + epicOauth.access_token;
+        opts.headers.Cookie = getWebCookieString();
+    }
+    
     request.get(opts, function(err, res, body)
     {
         var manifest;
         
-        if (err || res.statusCode !== 200) {
+        if ((err || res.statusCode !== 200) && !useAuth) {
+            ///TEMP
+            console.log("Using auth");
+            console.error(body);
+            
+            getItemManifest(itemBuildInfo, cb, true);
+        } else if (err || res.statusCode !== 200) {
             console.error(err);
+            if (res) {
+                console.error(res.statusCode);
+            }
+            console.error(body);
             cb(err || res);
         } else {
             manifest = JSON.parse(body);
