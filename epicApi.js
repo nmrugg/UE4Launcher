@@ -559,6 +559,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
             
             var headerSize;
             var compressed;
+            var data;
             
             function onWrite(err)
             {
@@ -583,16 +584,24 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
                 compressed = (body[40] === 1);
                 
                 if (compressed) {
-                    console.log("unzipping")
-                    zlib.unzip(body.slice(headerSize), function onUnzip(err, result)
+                    zlib.unzip(body.slice(headerSize), function onUnzip(err, unzipped)
                     {
-                        ///TODO: Compare sha1 hash in ChunkShaList
-                        fs.writeFile(path, result, onWrite);
+                        if (!isHashCorrect(unzipped, manifest.ChunkShaList[chunk.guid])) {
+                            console.error("Unzipped hash is wrong. Trying again...");
+                            chunk.downloadStatus = undefined;
+                            return downloadChunk(i);
+                        }
+                        
+                        fs.writeFile(path, unzipped, onWrite);
                     });
                 } else {
-                    console.log("uncompressed")
-                    ///TODO: Compare sha1 hash in ChunkShaList
-                    fs.writeFile(path, body.slice(headerSize), onWrite);
+                    data = body.slice(headerSize);
+                    if (!isHashCorrect(data, manifest.ChunkShaList[chunk.guid])) {
+                        console.error("Hash is wrong. Trying again...");
+                        chunk.downloadStatus = undefined;
+                        return downloadChunk(i);
+                    }
+                    fs.writeFile(path, data, onWrite);
                 }
             }
         });
