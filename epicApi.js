@@ -337,11 +337,19 @@ function getAssetInfo(catalogItemId, cb)
     var path = p.join(cacheDir, "assetInfo", catalogItemId + ".json");
     fs.readFile(path, "utf8", function onread(err, data)
     {
-        try {
-            data = JSON.parse(data);
-        } catch (e) {}
+        var json;
         
-        if (err || !data) {
+        if (!err && data) {
+            try {
+                ///TODO: Check if in offline mode.
+                /// Cache expires after 12 hours
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 12) {
+                    json = JSON.parse(data);
+                }
+            } catch (e) {}
+        }
+        
+        if (err || !json) {
             loginIfNecessary(null, null, function ()
             {
                 downloadAssetInfo(catalogItemId, function (err, assetInfo)
@@ -355,7 +363,7 @@ function getAssetInfo(catalogItemId, cb)
             });
         } else {
             console.log("Using cached assetInfo");
-            cb(null, data);
+            cb(null, json);
         }
     });
 }
