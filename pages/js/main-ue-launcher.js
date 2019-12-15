@@ -72,6 +72,7 @@ function launchEngine(enginePath, project)
 {
     var args;
     var curTime = Date.now();
+    var child;
     
     //engine = engine || unrealEnginePath
     if (!enginePath) {
@@ -94,7 +95,29 @@ function launchEngine(enginePath, project)
             args = [project];
         }
         
-        spawn(enginePath, args);
+        console.log("Launching " + enginePath + (args ? " " + args.join(" ") : ""));
+        child = spawn(enginePath, args, {detached: true, encoding: "utf8"});
+        
+        child.stdout.on("data", function (data)
+        {
+            if (typeof data !== "string") {
+                data = data.toString();
+            }
+            console.log(data);
+        });
+        
+        child.stderr.on("data", function (data)
+        {
+            if (typeof data !== "string") {
+                data = data.toString();
+            }
+            console.info(data);
+        });
+        
+        child.on("error", function (err)
+        {
+            console.error(err);
+        });
     }
 }
 
