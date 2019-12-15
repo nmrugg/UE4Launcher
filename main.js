@@ -11,8 +11,9 @@ var Menu = electron.Menu;
 var ipc = electron.ipcMain;
 var loginWindow;
 var isLoggedIn = false;
-var offline = true;
-var vault;
+var cookies;
+var offline = false;
+var vaultData;
 
 /*
 var menuTemplate = [
@@ -157,21 +158,23 @@ function downloadURL(url, options, cb)
         }
     }
     
-    contents.session.on('will-download', (event, item, webContents) => {
+    contents.session.on('will-download', function (event, item, webContents)
+    {
         // Set the save path, making Electron not to prompt a save dialog.
         if (options.path) {
             item.setSavePath(options.path);
         }
     
-        item.on('updated', (event, state) => {
-            if (state === 'interrupted') {
-                //console.log('Download is interrupted but can be resumed')
+        item.on("updated", function (event, state)
+        {
+            if (state === "interrupted") {
+                //console.log("Download is interrupted but can be resumed")
                 if (options.onInterrupt) {
                     options.onInterrupt(item);
                 }
-            } else if (state === 'progressing') {
+            } else if (state === "progressing") {
                 if (item.isPaused()) {
-                    //console.log('Download is paused')
+                    //console.log("Download is paused")
                     if (options.onPause) {
                         options.onPause(item);
                     }
@@ -183,7 +186,8 @@ function downloadURL(url, options, cb)
                 }
             }
         })
-        item.once('done', (event, state) => {
+        item.once("done", function (event, state)
+        {
             var success = (state === "completed");
             var filePath = item.getSavePath();
             
@@ -338,6 +342,20 @@ function login(cb)
         console.log("did-frame-finish-load");
         if (isLoggedIn) {
             //loginWindow.close();
+            ///contents.session ?
+            console.log(contents.session.cookies)
+            console.log("--")
+            console.log(contents.session.defaultSession)
+            console.log("----")
+            electron.session.defaultSession.cookies.get({}).then(function onget(sessionCookies)
+            {
+                cookies = sessionCookies;
+                console.log(cookies);
+            }).catch(function onerror(err)
+            {
+                console.error("Error getting cookies");
+                console.error(err);
+            });
         }
     });
     /*
@@ -358,6 +376,11 @@ function login(cb)
         console.log("page-title-updated", title, explicitSet)
         ///TODO: Make sure it goes to the right page when logging out
         ///page-title-updated Logging out... | Epic Games true
+        if (typeof title === "string" && title.indexOf("Logging out") > -1) {
+            console.log("Detected logout. Trying to log in.");
+            /// Redirect to the login page.
+            loginWindow.loadURL("https://www.unrealengine.com/login");
+        }
     });
 }
 
@@ -386,7 +409,7 @@ function createMainWindow()
     mainWindow.maximize();
 }
 
-function getVault(cb)
+function downloadVaultData(cb)
 {
     var vault = [];
     var dlCount = 25;
@@ -400,6 +423,7 @@ function getVault(cb)
         console.log(dlIndex);
         //debugger;
         if (dlTotal !== undefined && dlIndex >= dlTotal - 1) {
+            console.log("Done downloading vault");
             return cb(vault);
         }
         
@@ -427,31 +451,44 @@ function getVault(cb)
     }());
 }
 
+
+function getVault()
+{
+    if (typeof vault === "undefined") {
+        try {
+            vaultData = JSON.parse(fs.readFileSync(p.join(__dirname, "vault.json"), "utf8"));
+        } catch (e) {
+            vaultData = [];
+        }
+    }
+    
+    return vaultData;
+}
+        
 function updateVault(cb)
 {
     if (offline) {
-        try {
-            vault = JSON.parse(fs.readFileSync(p.join(__dirname, "vault.json"), "utf8"));
-        } catch (e) {
-            vault = [];
-        }
         if (cb) {
-            setImmediate(cb, vault);
+            setImmediate(cb);
         }
     } else {
-        getVault(function (data)
+        downloadVaultData(function (data)
         {
-            vault = data;
+            if (data) {
+                vaultData = data;
+            } else {
+                vaultData = [];
+            }
             /*
             console.log(vault);
             console.log(vault.length);
             
             */
             
-            fs.writeFileSync(p.join(__dirname, "vault.json"), JSON.stringify(vault));
+            fs.writeFileSync(p.join(__dirname, "vault.json"), JSON.stringify(vaultData));
             
             if (cb) {
-                cb(vault);
+                cb(vaultData);
             }
         });
     }
@@ -521,23 +558,33 @@ app.on("activate", function () {
 
 
 /*
-ipc.on('asynchronous-message', (event, arg) => {
+ipc.on('asynchronous-message', function (event, arg)
+{
   console.log(arg) // prints "ping"
   event.reply('asynchronous-reply', 'pong')
 })
 
-ipc.on('synchronous-message', (event, arg) => {
+ipc.on('synchronous-message', function (event, arg)
+{
   console.log(arg) // prints "ping"
   event.returnValue = 'pong'
 })
 */
 
-ipc.on("getVault", function (event, arg)
+ipc.on("getVault", function (e/*, arg*/)
 {
     console.log("getting vault");
     
-    updateVault(function ()
+    e.returnValue = JSON.stringify(getVault());
+    console.log(e.returnValue)
+});
+
+ipc.on("updateVault", function (e/*, arg*/)
+{
+    console.log("updating vault");
+    
+    updateVault(function (data)
     {
-        event.reply("getVault", JSON.stringify(vault));
+        e.reply("updateVault", data ? JSON.stringify(data) : "");
     });
 });

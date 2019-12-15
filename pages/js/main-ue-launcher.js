@@ -13,6 +13,8 @@ var lastEngineLaunched;
 var lastProjectLaunched;
 var lastProjectLaunchedTime;
 
+var vaultData;
+
 
 function createProjectList()
 {
@@ -75,13 +77,13 @@ function launchEngine(engine, project)
 
 function createVaultList()
 {
-    ipc.on("getVault", function (event, data)
+    function createVaultEls()
     {
-        var vault = JSON.parse(data);
         var vaultEl = document.getElementById("vault");
-        console.log(vault);
         
-        vault.forEach(function (item)
+        vaultEl.innerHTML = "";
+        
+        vaultData.forEach(function (item)
         {
             var container = document.createElement("div");
             var img = document.createElement("div");
@@ -98,9 +100,26 @@ function createVaultList()
             container.appendChild(title);
             vaultEl.appendChild(container);
         });
+    }
+    
+    ipc.on("updateVault", function (event, data)
+    {
+        console.log(data)
+        if (data) {
+            vaultData = JSON.parse(data);
+            createVaultEls();
+        }
     });
     
-    ipc.send("getVault");
+    try {
+        vaultData = JSON.parse(ipc.sendSync("getVault"));
+    } catch (e) {
+        vaultData = [];
+    }
+    
+    createVaultEls();
+    
+    ipc.send("updateVault");
 }
 
 createProjectList();
