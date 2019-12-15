@@ -140,7 +140,7 @@ function createVaultList()
             
             container.className = "vault-item";
             img.className = "vault-item-image";
-            img.style.backgroundImage = "url(\"" + (item.thumbnail) + "\")";
+            img.style.backgroundImage = "url(\"" + (item.thumbnail) + "\")"; ///TODO: Storage image cache
             
             title.className = "vault-item-title";
             title.textContent = item.title;
