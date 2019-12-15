@@ -686,6 +686,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         
         dir = p.join(chunksBasePath, chunk.group);
         
+        ///TODO: Simply use the filename (guid) and use the first two letters of it for the subdir.
         //path = p.join(dir, chunk.hash + "_" + chunk.filename + "X");
         path = p.join(dir, chunk.hash + "_" + chunk.filename);
         
@@ -883,6 +884,9 @@ function extractChunks(manifest, ondone, onerror, onprogress)
         // Write out the assembled buffer
         console.log(fileName)
         fs.writeFileSync(fileName, buffer);
+        
+        ///TODO: Delete a chunk when it is no longer necessary.
+        ///NOTE: One chunk may be used for many files.
         
         setImmediate(loop, i + 1);
         ///TODO: Progress
