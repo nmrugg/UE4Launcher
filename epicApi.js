@@ -709,6 +709,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         
         opts = {
             url: chunk.url,
+            timeout: 30000,
             encoding: null, /// Download the file with binary encoding
         };
         
