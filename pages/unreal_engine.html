@@ -4,6 +4,7 @@
         <meta charset=utf-8>
         <title>Unreal Engine Launcher | Epic Games</title>
         <link rel=stylesheet href="css/base.css">
+        <link rel=stylesheet href="css/prompt.css">
     </head>
     <body>
     <nav>
@@ -24,13 +25,15 @@
         <div class=content>
             
             <fieldset>
-                <legend>Engine Versions <a class="add-engine" href=#>&#x2795;</a></legend>
+                <legend>Engine Versions <a id="addEngine" href=#>&#x2795;</a></legend>
+                <!--
                 <div class=content-area>
                     <div class=ue4-engine>
                         <span class=engine-version>4.23.0</span>
                         <a href=# class=engine-launch id=temp423Launch>Launch</a>
                     </div>
                 </div>
+                -->
             </fieldset>
             
             <fieldset>
@@ -47,5 +50,6 @@
         </div>
     </main>
     </body>
+    <script src=js/prompt.js></script>
     <script src=js/main-ue-launcher.js></script>
 </html>

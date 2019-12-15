@@ -137,7 +137,7 @@ legend {
     padding: 20px 12px 20px 0;
 }
 
-.add-engine {
+#addEngine {
     background: #A78529;
     color: #131313;
     font-weight: bold;

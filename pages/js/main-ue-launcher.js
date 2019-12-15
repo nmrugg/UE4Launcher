@@ -122,23 +122,44 @@ function createVaultList()
     ipc.send("updateVault");
 }
 
+function asyncPrompt(message, cb)
+{
+    pb.prompt(
+        cb,
+        message,
+        "input", /// Can also use "textarea"
+        "", /// Default
+        "Submit", /// Submit text
+        "Cancel", /// Cancel text
+        {} /// Additional options
+    );
+}
+
+function implementAddEngineButton()
+{
+    var addEngineEl = document.getElementById("addEngine");
+    
+    addEngineEl.onclick = function ()
+    {
+        var path = asyncPrompt("Enter Unreal Engine path:", function (value)
+        {
+            if (value) {
+                
+            }
+        });
+    };
+}
+
 createProjectList();
 
 createVaultList();
 
+implementAddEngineButton();
+
+/*
 ///TEMP: Launch button
 document.getElementById("temp423Launch").onclick = function ()
 {
     launchEngine();
 };
-
-
-/*
-const { ipcRenderer } = require('electron')
-console.log(ipcRenderer.sendSync('synchronous-message', 'ping')) // prints "pong"
-
-ipcRenderer.on('asynchronous-reply', (event, arg) => {
-  console.log(arg) // prints "pong"
-})
-ipcRenderer.send('asynchronous-message', 'ping')
 */
