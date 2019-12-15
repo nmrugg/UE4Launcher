@@ -1,13 +1,9 @@
 /** Variables **/
-body {
-  font-family: sans-serif; }
-
-* {
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box; }
 
 #pb-container,
 .pb-backdrop {
+-webkit-box-sizing: border-box;
+  box-sizing: border-box;
   -webkit-transition: ease 0.25s;
   -o-transition: ease 0.25s;
   transition: ease 0.25s; }
@@ -23,11 +19,15 @@ body {
   .pb-backdrop textarea,
   .pb-backdrop select,
   .pb-backdrop div {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
     -webkit-transition: ease 0.25s;
     -o-transition: ease 0.25s;
     transition: ease 0.25s; }
 
 .pb-toast {
+    -webkit-box-sizing: border-box;
+  box-sizing: border-box;
   -webkit-transition: ease 0.25s;
   -o-transition: ease 0.25s;
   transition: ease 0.25s; }
@@ -37,11 +37,15 @@ body {
   .pb-toast textarea,
   .pb-toast select,
   .pb-toast div {
+    -webkit-box-sizing: border-box;
+  box-sizing: border-box;
     -webkit-transition: ease 0.25s;
     -o-transition: ease 0.25s;
     transition: ease 0.25s; }
 
 .pb-backdrop {
+-webkit-box-sizing: border-box;
+  box-sizing: border-box;
   position: fixed;
   top: 0;
   left: 0;
@@ -54,6 +58,8 @@ body {
     opacity: 1; }
 
 #pb-container {
+-webkit-box-sizing: border-box;
+  box-sizing: border-box;
   display: inline-block;
   position: fixed;
   top: 40vh;
@@ -94,6 +100,8 @@ body {
     transform: scale(1); }
 
 .pb-toast {
+-webkit-box-sizing: border-box;
+  box-sizing: border-box;
   display: inline-block;
   position: fixed;
   left: 0;
@@ -140,10 +148,14 @@ body {
     color: rgba(0, 0, 0, 0.5); }
 
 .pb-message {
+-webkit-box-sizing: border-box;
+  box-sizing: border-box;
   font-size: 1.05em;
   margin: 0 0 0.75em; }
 
 .pb-buttons button {
+-webkit-box-sizing: border-box;
+  box-sizing: border-box;
   display: inline-block;
   background: #EEE;
   border-radius: 2px;
