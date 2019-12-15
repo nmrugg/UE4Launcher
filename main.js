@@ -12,8 +12,20 @@ var ipc = electron.ipcMain;
 var loginWindow;
 var isLoggedIn = false;
 var cookies;
-var offline = false;
+var offline = true;
 var vaultData;
+
+var cacheDir = p.join(__dirname, "cache");
+var vaultPath = p.join(cacheDir, "vault.json");
+
+
+function mkdirSync(dir)
+{
+    try {
+        fs.mkdirSync(dir);
+    } catch (e) {}
+}
+
 
 /*
 var menuTemplate = [
@@ -33,7 +45,9 @@ var menuTemplate = [
 ];
 */
 
-app.on('browser-window-created',function(e,window) {
+mkdirSync(cacheDir);
+
+app.on("browser-window-created",function(e,window) {
     window.setMenu(null);
 });
 
@@ -158,7 +172,7 @@ function downloadURL(url, options, cb)
         }
     }
     
-    contents.session.on('will-download', function (event, item, webContents)
+    contents.session.on("will-download", function (event, item, webContents)
     {
         // Set the save path, making Electron not to prompt a save dialog.
         if (options.path) {
@@ -210,8 +224,8 @@ function downloadURL(url, options, cb)
                 } catch (e) {}
             }
             /*
-            if (state === 'completed') {
-                console.log('Download successfully /tmp/test.json')
+            if (state === "completed") {
+                console.log("Download successfully /tmp/test.json")
             } else {
                 console.log(`Download failed: ${state}`)
             }
@@ -456,7 +470,7 @@ function getVault()
 {
     if (typeof vault === "undefined") {
         try {
-            vaultData = JSON.parse(fs.readFileSync(p.join(__dirname, "vault.json"), "utf8"));
+            vaultData = JSON.parse(fs.readFileSync(vaultPath, "utf8"));
         } catch (e) {
             vaultData = [];
         }
@@ -485,7 +499,7 @@ function updateVault(cb)
             
             */
             
-            fs.writeFileSync(p.join(__dirname, "vault.json"), JSON.stringify(vaultData));
+            fs.writeFileSync(vaultPath, JSON.stringify(vaultData));
             
             if (cb) {
                 cb(vaultData);
@@ -558,16 +572,16 @@ app.on("activate", function () {
 
 
 /*
-ipc.on('asynchronous-message', function (event, arg)
+ipc.on("asynchronous-message", function (event, arg)
 {
   console.log(arg) // prints "ping"
-  event.reply('asynchronous-reply', 'pong')
+  event.reply("asynchronous-reply", "pong")
 })
 
-ipc.on('synchronous-message', function (event, arg)
+ipc.on("synchronous-message", function (event, arg)
 {
   console.log(arg) // prints "ping"
-  event.returnValue = 'pong'
+  event.returnValue = "pong"
 })
 */
 
@@ -576,7 +590,6 @@ ipc.on("getVault", function (e/*, arg*/)
     console.log("getting vault");
     
     e.returnValue = JSON.stringify(getVault());
-    console.log(e.returnValue)
 });
 
 ipc.on("updateVault", function (e/*, arg*/)
