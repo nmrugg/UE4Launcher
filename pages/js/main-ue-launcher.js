@@ -29,11 +29,14 @@ function parseJson(str, defaultVal)
     return json;
 }
 
+
 function createProjectList()
 {
     var projectsAreaEl = document.getElementById("projects");
-    var projects = getProjects();
+    var projects = getProjects(configData.engines);
     var defaultThumb = "imgs/default_game_thumbnail.png";
+    
+    projectsAreaEl.innerHTML = "";
     
     projects.forEach(function (project)
     {
@@ -51,7 +54,7 @@ function createProjectList()
         //img.src = project.thumb || defaultThumb;
         img.style.backgroundImage = "url(\"" + (project.thumb || defaultThumb) + "\")";
         img.className = "project-img-box";
-        version.textContent = "4.23"; ///TODO: Get actual verion number!
+        version.textContent = project.version;
         version.className = "project-version";
         name.textContent = project.name;
         name.className = "project-name";
@@ -189,6 +192,7 @@ function implementAddEngineButton()
                 ipc.sendSync("addEngine", path);
                 loadConfig();
                 createEngineList();
+                createProjectList();
             }
         });
     };
@@ -201,7 +205,7 @@ function createEngineList()
     if (configData && configData.engines) {
         containerEl = document.getElementById("engines");
         
-        containerEl.innerHtml = "";
+        containerEl.innerHTML = "";
         configData.engines.forEach(function createEngineEl(engineData)
         {
             var engineEl = document.createElement("div");
