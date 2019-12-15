@@ -644,12 +644,14 @@ function addEngine(path)
 {
     var engineBasePath;
     var engineVersion;
+    var execPath;
     
     /// Is this a link to the file?
     try {
         if (!fs.lstatSync(path).isDirectory()) {
             engineBasePath = p.join(path, "..", "..", "..", "..");
         }
+        execPath = path;
     } catch (e) {}
     
     if (!engineBasePath) {
@@ -669,11 +671,14 @@ function addEngine(path)
     engineVersion = getEngineVersion(engineBasePath);
     
     if (engineVersion) {
+        if (!execPath) {
+            ///TODO: Support other platforms
+            execPath = p.join(engineBasePath, "Engine", "Binaries", "Linux", "UE4Editor");
+        }
         configData.engines.push({
             baseDir: engineBasePath,
             version: engineVersion,
-            ///TODO: Support other platforms
-            execPath: p.join(engineBasePath, "Engine", "Binaries", "Linux", "UE4Editor"),
+            execPath: execPath,
         });
         saveConfig();
     }

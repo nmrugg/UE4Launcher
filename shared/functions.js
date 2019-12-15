@@ -16,7 +16,7 @@ function getProjectVersionFromEnginePath(name, projectPath, engines)
                 fileData = fs.readFileSync(p.join(projectPath, name + ".workspace"), "utf8");
                 searchPrefix = "<Include Path=\"";
             } else {
-                ///TODO: Cross platform
+                ///TODO: Support other platforms
                 fileData = fs.readFileSync(p.join(projectPath, "Saved", "Config", "Linux", "EditorPerProjectUserSettings.ini"), "utf8");
                 searchPrefix = "Project=";
             }
