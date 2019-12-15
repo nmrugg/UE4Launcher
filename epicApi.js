@@ -11,6 +11,8 @@ var epicOauth;
 var epicSSO;
 var debug = false;
 
+var cacheDir = p.join(__dirname, "cache");
+
 request = request.defaults({followRedirect: false, followAllRedirects: false});
 
 /// Debugging
@@ -33,6 +35,13 @@ request.post = function (opts, cb)
     request._post(opts, cb);
 };
 
+
+function mkdirSync(dir)
+{
+    try {
+        fs.mkdirSync(dir);
+    } catch (e) {}
+}
 
 function updateFakeJar(cookies)
 {
@@ -322,7 +331,36 @@ var login = (function ()
     };
 }());
 
+
 function getAssetInfo(catalogItemId, cb)
+{
+    var path = p.join(cacheDir, "assetInfo", catalogItemId + ".json");
+    fs.readFile(path, "utf8", function onread(err, data)
+    {
+        try {
+            data = JSON.parse(data);
+        } catch (e) {}
+        
+        if (err || !data) {
+            loginIfNecessary(null, null, function ()
+            {
+                downloadAssetInfo(catalogItemId, function (err, assetInfo)
+                {
+                    if (!err && assetInfo) {
+                        mkdirSync(p.join(cacheDir, "assetInfo"));
+                        fs.writeFileSync(path, JSON.stringify(assetInfo));
+                    }
+                    cb(err, assetInfo);
+                });
+            });
+        } else {
+            console.log("Using cached assetInfo");
+            cb(null, data);
+        }
+    });
+}
+
+function downloadAssetInfo(catalogItemId, cb)
 {
     var opts = {
         uri: "https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/bulk/items",
@@ -516,7 +554,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
     var len = chunks.length;
     var hasFinished = false;
     var j;
-    var appBasePath = p.join(__dirname, "downloads", appId);
+    var appBasePath = p.join(cacheDir, "assets", appId);
     var chunksBasePath = p.join(appBasePath, "chunks");
     var downloading = 1;
     var downloaded = 2;
@@ -575,9 +613,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         
         chunk.downloadStatus = downloading;
         
-        try {
-            fs.mkdirSync(dir);
-        } catch (e) {}
+        mkdirSync(dir);
         
         opts = {
             url: chunk.url,
@@ -644,15 +680,10 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         });
     }
     
-    try {
-        fs.mkdirSync(p.join(__dirname, "downloads"));
-    } catch (e) {}
-    try {
-        fs.mkdirSync(appBasePath);
-    } catch (e) {}
-    try {
-        fs.mkdirSync(chunksBasePath);
-    } catch (e) {}
+    mkdirSync(dir);
+    mkdirSync(p.join(cacheDir, "assets"));
+    mkdirSync(appBasePath);
+    mkdirSync(chunksBasePath);
     
     for (j = 0; j < concurrent; ++j) {
         downloadChunk(j);
@@ -702,14 +733,12 @@ function mkdirs(dir, relBase)
 
 function extractChunks(manifest, ondone, onerror, onprogress)
 {
-    var chunkBasePath = p.join(__dirname, "downloads", manifest.AppNameString, "chunks");
-    var extractedBasePath = p.join(__dirname, "downloads", manifest.AppNameString, "extracted");
+    var chunkBasePath = p.join(cacheDir, "assets", manifest.AppNameString, "chunks");
+    var extractedBasePath = p.join(cacheDir, "assets", manifest.AppNameString, "extracted");
     var fullFileList = manifest.FileManifestList;
     var filesCount = fullFileList.length;
     
-    try {
-        fs.mkdirSync(extractedBasePath);
-    } catch (e) {}
+    mkdirSync(extractedBasePath);
     
     (function loop(i)
     {
@@ -800,8 +829,24 @@ downloadChunks(manifest, chunks, function ondone()
 return;
 */
 
-login(null, null, function ondone()
+function loginIfNecessary(user, pass, ondone, onerror, onprogress)
 {
+    if (epicOauth) {
+        setImmediate(ondone);
+    } else {
+        login(user, pass, ondone, onerror || function onerror(err, message)
+        {
+            console.error(message);
+            console.error(err);
+        }, onprogress || function progress(amount, message, total)
+        {
+            console.log(message + " " + Math.round((amount / total) * 100) + "%");
+        });
+    }
+}
+
+//login(null, null, function ondone()
+//{
     //var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
     //var id = "be35e1818bc0425bbe957b8f642dc43e"; /// Gideon
     var id = "d64e30482a3046318029240b276cbd72"; // "Free Fantasy Weapon Sample Pack"
@@ -846,7 +891,7 @@ login(null, null, function ondone()
             });
         });
     });
-    
+/*
 }, function onerror(err, message)
 {
     console.error(message);
@@ -855,4 +900,4 @@ login(null, null, function ondone()
 {
     console.log(message + " " + Math.round((amount / total) * 100) + "%");
 });
-
+*/

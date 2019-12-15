@@ -2,4 +2,4 @@ node_modules
 etc
 release-builds
 vault.json
-downloads/
+cache/
