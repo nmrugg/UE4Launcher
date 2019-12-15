@@ -334,7 +334,9 @@ var login = (function ()
 
 function getAssetInfo(catalogItemId, cb)
 {
-    var path = p.join(cacheDir, "assetInfo", catalogItemId + ".json");
+    var basePath = p.join(cacheDir, "assetInfo");
+    var path = p.join(basePath, catalogItemId + ".json");
+    
     fs.readFile(path, "utf8", function onread(err, data)
     {
         var json;
@@ -355,13 +357,14 @@ function getAssetInfo(catalogItemId, cb)
                 downloadAssetInfo(catalogItemId, function (err, assetInfo)
                 {
                     if (!err && assetInfo) {
-                        mkdirSync(p.join(cacheDir, "assetInfo"));
+                        mkdirSync(basePath);
                         fs.writeFileSync(path, JSON.stringify(assetInfo));
                     }
                     cb(err, assetInfo);
                 });
             });
         } else {
+            ///TEMP
             console.log("Using cached assetInfo");
             cb(null, json);
         }
@@ -427,8 +430,49 @@ function getItemVersions(itemInfo)
 
 function getItemBuildInfo(catalogItemId, appId, cb)
 {
+    var basePath = p.join(cacheDir, "buildInfo");
+    var path = p.join(basePath, catalogItemId + "_" + appId + ".json");
+    
+    fs.readFile(path, "utf8", function onread(err, data)
+    {
+        var json;
+        
+        if (!err && data) {
+            try {
+                ///TODO: Check if in offline mode.
+                json = JSON.parse(data);
+                
+                /// itemBuildInfo comes with expires data, but we can fall back to checking the last modified time.
+                if ((json.expires && (new Date(json.expires)).valueOf() < Date.now()) ||
+                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 12) {
+                    json = undefined;
+                }
+            } catch (e) {}
+        }
+        
+        if (err || !json) {
+            loginIfNecessary(null, null, function ()
+            {
+                downloadItemBuildInfo(catalogItemId, appId, function (err, itemBuildInfo)
+                {
+                    if (!err && itemBuildInfo) {
+                        mkdirSync(basePath);
+                        fs.writeFileSync(path, JSON.stringify(itemBuildInfo));
+                    }
+                    cb(err, itemBuildInfo);
+                });
+            });
+        } else {
+            ///TEMP
+            console.log("Using cached itemBuildInfo");
+            cb(null, json);
+        }
+    });
+}
+
+function downloadItemBuildInfo(catalogItemId, appId, cb)
+{
     var opts = {
-        // From launcher: https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/cd2c274e32764e4b9bba09115e732fde/MagicEffects411?label=Live
         uri: "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows/" + catalogItemId + "/" + appId,
         headers: {
             Authorization: "bearer " + epicOauth.access_token,
@@ -456,6 +500,45 @@ function getItemBuildInfo(catalogItemId, appId, cb)
 
 function getItemManifest(itemBuildInfo, cb, useAuth)
 {
+    var basePath = p.join(cacheDir, "manifests");
+    var path = p.join(basePath, itemBuildInfo.assetId + ".json");
+    
+    fs.readFile(path, "utf8", function onread(err, data)
+    {
+        var json;
+        
+        if (!err && data) {
+            try {
+                ///TODO: Check if in offline mode.
+                /// Cache expires after 12 hours
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 12) {
+                    json = JSON.parse(data);
+                }
+            } catch (e) {}
+        }
+        
+        if (err || !json) {
+            loginIfNecessary(null, null, function ()
+            {
+                downloadItemManifest(itemBuildInfo, function (err, itemBuildInfo)
+                {
+                    if (!err && itemBuildInfo) {
+                        mkdirSync(basePath);
+                        fs.writeFileSync(path, JSON.stringify(itemBuildInfo));
+                    }
+                    cb(err, itemBuildInfo);
+                }, useAuth);
+            });
+        } else {
+            ///TEMP
+            console.log("Using cached manifest");
+            cb(null, json);
+        }
+    });
+}
+
+function downloadItemManifest(itemBuildInfo, cb, useAuth)
+{
     var opts = {
         uri: itemBuildInfo.items.MANIFEST.distribution + itemBuildInfo.items.MANIFEST.path + "?" + itemBuildInfo.items.MANIFEST.signature,
         headers: {
@@ -482,7 +565,7 @@ function getItemManifest(itemBuildInfo, cb, useAuth)
             console.log("Using auth");
             console.error(body);
             
-            getItemManifest(itemBuildInfo, cb, true);
+            downloadItemManifest(itemBuildInfo, cb, true);
         } else if (err || res.statusCode !== 200) {
             console.error(err);
             if (res) {
@@ -688,7 +771,6 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         });
     }
     
-    mkdirSync(dir);
     mkdirSync(p.join(cacheDir, "assets"));
     mkdirSync(appBasePath);
     mkdirSync(chunksBasePath);
@@ -853,11 +935,14 @@ function loginIfNecessary(user, pass, ondone, onerror, onprogress)
     }
 }
 
+/// Make sure cacheDir exists.
+mkdirSync(cacheDir);
+
 //login(null, null, function ondone()
 //{
     //var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
-    //var id = "be35e1818bc0425bbe957b8f642dc43e"; /// Gideon
-    var id = "d64e30482a3046318029240b276cbd72"; // "Free Fantasy Weapon Sample Pack"
+    var id = "be35e1818bc0425bbe957b8f642dc43e"; /// Gideon
+    //var id = "d64e30482a3046318029240b276cbd72"; // "Free Fantasy Weapon Sample Pack"
     
     console.log("Getting asset info...");
     getAssetInfo(id, function (err, assetInfo)
