@@ -602,7 +602,7 @@ NodeList.prototype.remove = HTMLCollection.prototype.remove = function () {
     }
   }
 }
-  var pb = new PromptBoxes({
+var pb = new PromptBoxes({
     attrPrefix: 'pb',
     speeds: {
       backdrop: 500,  // The enter/leaving animation speed of the backdrop
@@ -639,5 +639,4 @@ NodeList.prototype.remove = HTMLCollection.prototype.remove = function () {
       closeWithEscape: true,  // Allow closing with escaping
       allowClose: false,      // Whether to show a "x" to close the toast
     }
-  });
-  console.log(pb);
+});

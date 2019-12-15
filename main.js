@@ -13,10 +13,13 @@ var loginWindow;
 var isLoggedIn = false;
 var cookies;
 var offline = true;
-var vaultData;
 
 var cacheDir = p.join(__dirname, "cache");
 var vaultPath = p.join(cacheDir, "vault.json");
+var configPath = p.join(__dirname, "config.json");
+
+var vaultData;
+var configData;
 
 
 function mkdirSync(dir)
@@ -25,6 +28,22 @@ function mkdirSync(dir)
         fs.mkdirSync(dir);
     } catch (e) {}
 }
+
+function loadConfig()
+{
+    configData = loadJsonFile(configPath, {});
+    
+    if (!configData.engines) {
+        configData.engines = [];
+    }
+}
+
+function saveConfig(data)
+{
+    configData = data || configData;
+    fs.writeFileSync(configPath, JSON.stringify(configData));
+}
+
 
 
 /*
@@ -46,6 +65,9 @@ var menuTemplate = [
 */
 
 mkdirSync(cacheDir);
+
+loadConfig();
+
 
 app.on("browser-window-created",function(e,window) {
     window.setMenu(null);
@@ -85,7 +107,7 @@ function getJson(url, cb)
 */
 
 
-function getJSON(url, options, cb)
+function getJson(url, options, cb)
 {
     /// Make options optional.
     if (typeof options === "function") {
@@ -443,7 +465,7 @@ function downloadVaultData(cb)
         
         url = "https://www.unrealengine.com/marketplace/api/assets/vault?start=" + dlIndex + "&count=" + dlCount;
         
-        getJSON(url, {login: true}, function (err, data)
+        getJson(url, {login: true}, function (err, data)
         {
             //debugger;
             console.log(data);
@@ -465,15 +487,23 @@ function downloadVaultData(cb)
     }());
 }
 
+function loadJsonFile(path, defaultVal)
+{
+    var json;
+    
+    try {
+        json = JSON.parse(fs.readFileSync(path, "utf8"));
+    } catch (e) {
+        json = defaultVal;
+    }
+    
+    return json;
+}
 
 function getVault()
 {
-    if (typeof vault === "undefined") {
-        try {
-            vaultData = JSON.parse(fs.readFileSync(vaultPath, "utf8"));
-        } catch (e) {
-            vaultData = [];
-        }
+    if (typeof vaultData === "undefined") {
+        vaultData = loadJsonFile(vaultPath, []);
     }
     
     return vaultData;
@@ -524,7 +554,7 @@ function startup()
     //downloadURL("https://cdn1.epicgames.com/ue/product/Screenshot/AssetDemo-1920x1080-e2a5e4c8b0dad08bcb8d8df7495d9ab4.jpg");
     //createMainWindow();
     /*
-    getJSON("file:///storage/UE4Launcher/package.json", function (err, data)
+    getJson("file:///storage/UE4Launcher/package.json", function (err, data)
     {
         console.log(err);
         console.log(data);
@@ -533,7 +563,7 @@ function startup()
     /*
     login(function (err, loginWindow)
     {
-        getJSON("https://www.unrealengine.com/marketplace/api/assets/vault?start=0&count=25", {window: loginWindow}, function (err, data)
+        getJson("https://www.unrealengine.com/marketplace/api/assets/vault?start=0&count=25", {window: loginWindow}, function (err, data)
         {
             console.error(err);
             console.log(data);
@@ -585,6 +615,70 @@ ipc.on("synchronous-message", function (event, arg)
 })
 */
 
+function getEngineVersion(path)
+{
+    var data;
+    var match;
+    
+    try {
+        /// Check the last tag for the engine number.
+        data = require("child_process").execSync("git describe --abbrev=0", {stdio: "pipe", cwd: path, encoding: "utf8"}).trim();
+        match = data.match(/^(\d+\.\d+).*release$/);
+        if (match) {
+            return match[1];
+        }
+    } catch (e) {}
+    
+    try {
+        /// Check BRANCH_NAME in UE4Defines.pri for the engine number.
+        data = fs.readFileSync(p.join(path, "UE4Defines.pri"), "utf8");
+        match = data.match(/BRANCH_NAME=".*?(\d+\.\d+)"/);
+        if (match) {
+            return match[1];
+        }
+    } catch (e) {}
+}
+
+
+function addEngine(path)
+{
+    var engineBasePath;
+    var engineVersion;
+    
+    /// Is this a link to the file?
+    try {
+        if (!fs.lstatSync(path).isDirectory()) {
+            engineBasePath = p.join(path, "..", "..", "..", "..");
+        }
+    } catch (e) {}
+    
+    if (!engineBasePath) {
+        /// Is it a link to the folder with the binary?
+        try {
+            if (fs.existsSync(p.join(path, "UE4Editor"))) {
+                engineBasePath = p.join(path, "..", "..", "..");
+            }
+        } catch (e) {}
+    }
+    
+    if (!engineBasePath) {
+        /// Assume that it's the path to the root of the engine.
+        engineBasePath = path;
+    }
+    
+    engineVersion = getEngineVersion(engineBasePath);
+    
+    if (engineVersion) {
+        configData.engines.push({
+            baseDir: engineBasePath,
+            version: engineVersion,
+            ///TODO: Support other platforms
+            execPath: p.join(engineBasePath, "Engine", "Binaries", "Linux", "UE4Editor"),
+        });
+        saveConfig();
+    }
+}
+
 ipc.on("getVault", function (e/*, arg*/)
 {
     console.log("getting vault");
@@ -601,3 +695,27 @@ ipc.on("updateVault", function (e/*, arg*/)
         e.reply("updateVault", data ? JSON.stringify(data) : "");
     });
 });
+
+ipc.on("getConfig", function (e, arg)
+{
+    e.returnValue = JSON.stringify(configData);
+});
+/*
+ipc.on("saveConfig", function (e, arg)
+{
+    e.returnValue = JSON.stringify(getVault());
+});
+*/
+
+ipc.on("addEngine", function (e, path)
+{
+    /// Make sure it does not freeze.
+    try {
+        addEngine(path);
+    } catch (e) {
+        console.error(e);
+    }
+    /// If you do not set this, it will hang.
+    e.returnValue = "";
+});
+

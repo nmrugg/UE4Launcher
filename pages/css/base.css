@@ -194,6 +194,7 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     /*border-radius: 6px 0 0 6px;*/
     border-radius: 6px;
     padding: 2px 6px;
+    cursor: pointer;
 }
 /*
 .engine-launch::after {
