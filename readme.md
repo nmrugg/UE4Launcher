@@ -8,7 +8,7 @@ This project is an unofficial cross-platform <a href="https://www.unrealengine.c
 
 The launcher is incomplete; however, it should be able to preform most of the important tasks.
 
-It can launch projects as well as download and install assets and plugins.
+It can launch projects as well as download and install assets and plugins from the <a href="https://www.unrealengine.com/marketplace/en-US/store">UE4 marketplace</a>.
 
 It does not yet install the UE4 engine. So, you need to <a href=https://docs.unrealengine.com/en-US/GettingStarted/Installation>manually install</a> that first.
 
@@ -56,4 +56,3 @@ Run the launcher:
 ```
 
 Hope for the best.
-
