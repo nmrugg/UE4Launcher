@@ -446,6 +446,16 @@ function createMainWindow()
     
     mainWindow.webContents.openDevTools()
     mainWindow.maximize();
+    
+    mainWindow.on("close", function ()
+    {
+        /// Make sure everything is closed.
+        if (loginWindow) {
+            try {
+                loginWindow.close();
+            } catch (e) {}
+        }
+    });
 }
 
 function downloadVaultData(cb)
