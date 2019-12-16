@@ -12,7 +12,7 @@ It can launch projects as well as download and install assets and plugins.
 
 It does not yet install the UE4 engine. So, you need to <a href=https://docs.unrealengine.com/en-US/GettingStarted/Installation>manually install</a> that first.
 
-There are problem many bugs still, so please file an issue if you have a problem.
+There are probably many bugs still, so please <a href="https://github.com/nmrugg/UE4Launcher/issues/new">file an issue</a> if you have a problem.
 
 <h2>Screenshots</h2>
 
