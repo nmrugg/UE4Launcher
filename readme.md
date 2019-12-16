@@ -20,7 +20,7 @@ First, install <a href=https://nodejs.org/en/download/>node.js</a>.
 
 Then pull the project:
 ```bash
-git clone ...
+git clone https://github.com/nmrugg/UE4Launcher.git
 ```
 
 Change directory:
