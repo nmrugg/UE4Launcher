@@ -25,6 +25,7 @@ var configData;
 
 var devtools = false;
 
+
 function mkdirSync(dir)
 {
     try {
@@ -445,8 +446,8 @@ function createMainWindow()
 {
     // Create the browser window.
     mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: 1309,
+        height: 1051,
         fullscreenable: true,
         webPreferences: {
             //preload: p.join(__dirname, "preload.js")
