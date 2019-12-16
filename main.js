@@ -14,6 +14,8 @@ var isLoggedIn = false;
 var cookies;
 var offline = false;
 
+var addAssetToProject;
+
 var cacheDir = p.join(__dirname, "cache");
 var vaultPath = p.join(cacheDir, "vault.json");
 var configPath = p.join(__dirname, "config.json");
@@ -170,7 +172,7 @@ function downloadURL(url, options, cb)
     }
     
     if (options.login && !isLoggedIn) {
-        return login(function (err, window)
+        return login(false, function (err, window)
         {
             if (err) {
                 console.error(err);
@@ -263,7 +265,7 @@ function downloadURL(url, options, cb)
 
 
 
-function login(cb)
+function login(wantsCookies, cb)
 {
     var contents;
     
@@ -359,7 +361,9 @@ function login(cb)
         }, 5000);
         */
         //app.quit();
-        cb(false, loginWindow);
+        if (!wantsCookies) {
+            cb(null, loginWindow);
+        }
         
     }
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
@@ -379,18 +383,19 @@ function login(cb)
         if (isLoggedIn) {
             //loginWindow.close();
             ///contents.session ?
-            console.log(contents.session.cookies)
-            console.log("--")
-            console.log(contents.session.defaultSession)
-            console.log("----")
             electron.session.defaultSession.cookies.get({}).then(function onget(sessionCookies)
             {
                 cookies = sessionCookies;
-                console.log(cookies);
+                if (wantsCookies) {
+                    cb(null, loginWindow);
+                }
             }).catch(function onerror(err)
             {
                 console.error("Error getting cookies");
                 console.error(err);
+                if (wantsCookies) {
+                    cb(err, loginWindow);
+                }
             });
         }
     });
@@ -421,6 +426,18 @@ function login(cb)
             }, 50);
         }
     });
+}
+
+function getCookies(cb)
+{
+    if (!cookies) {
+        login(true, function (err)
+        {
+            cb(cookies);
+        });
+    } else {
+        setImmediate(cb, cookies);
+    }
 }
 
 function createMainWindow()
@@ -747,3 +764,30 @@ ipc.on("addEngine", function (e, path)
     e.returnValue = "";
 });
 
+ipc.on("addAssetToProject", function (e, data)
+{
+    var resId;
+    
+    console.log("Adding asset");
+    
+    data = JSON.parse(data);
+    
+    resId = {asset: data.assetData.name, project: data.projectData.name};
+    
+    console.log(data);
+    console.log(resId);
+    
+    addAssetToProject(data.assetData, data.projectData, function ondone()
+    {
+        console.log("Done with", resId);
+        e.reply("addingAssetDone", JSON.stringify(resId));
+    }, function onerror(err)
+    {
+        e.reply("addingAssetErr", JSON.stringify({id: resId, err: err}));
+    }, function onprogress(progress)
+    {
+        e.reply("addingAssetProgress", JSON.stringify({id: resId, progress: progress}));
+    });
+});
+
+addAssetToProject = require("./epicApi.js")(configData, getCookies);

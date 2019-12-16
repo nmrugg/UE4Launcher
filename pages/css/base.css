@@ -255,6 +255,7 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     color: #eee;
     text-shadow: 0 0 3px black, 0 0 2px black;
     font-weight: bold;
+    font-size: 14px;
 }
 
 .vault-item-title {

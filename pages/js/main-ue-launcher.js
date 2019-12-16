@@ -17,6 +17,8 @@ var projects;
 var vaultData;
 var configData;
 
+var addingAssetsQueue = [];
+
 function parseJson(str, defaultVal)
 {
     var json;
@@ -129,14 +131,76 @@ function launchEngine(enginePath, project)
 function addAssetToProject(assetData, projectData, assetContainerEl, assetImageEl)
 {
     assetContainerEl.classList.add("installing-asset");
-    assetImageEl.textContent = "Downloading...";
-    ///TODO:
+    assetImageEl.textContent = "Preparing...";
+    
+    addingAssetsQueue.push({
+        assetData: assetData,
+        projectData: projectData,
+        assetContainerEl: assetContainerEl,
+        assetImageEl: assetImageEl,
+    });
+    
+    if (addingAssetsQueue.length === 1) {
+        ipc.send("addAssetToProject", JSON.stringify({
+            assetData: assetData,
+            projectData: projectData,
+        }));
+    }
+}
+
+function prepareForAddingAssets()
+{
+    function processQueue()
+    {
+        addingAssetsQueue.pop();
+        
+        if (addingAssetsQueue.length) {
+            ipc.send("addAssetToProject", JSON.stringify({
+                assetData: addingAssetsQueue[0].assetData,
+                projectData: addingAssetsQueue[0].projectData,
+            }));
+        }
+    }
+    
+    ipc.on("addingAssetDone", function (event, data)
+    {
+        data = parseJson(data);
+        console.log(data);
+        addingAssetsQueue[0].assetContainerEl.classList.remove("installing-asset");
+        processQueue();
+    });
+    
+    ipc.on("addingAssetErr", function (event, data)
+    {
+        data = parseJson(data);
+        console.err(data);
+        addingAssetsQueue[0].assetContainerEl.classList.remove("installing-asset");
+        processQueue();
+    });
+    
+    ipc.on("addingAssetProgress", function (event, data)
+    {
+        var str = "";
+        
+        data = parseJson(data);
+        console.log(data);
+        
+        if (data.progress.type === "downloading") {
+            str = "Downloading...";
+        } else if (data.progress.type === "extracting") {
+            str = "Extracting...";
+        }
+        
+        str += (data.progress.percent * 100).toFixed(2) + "%";
+        
+        addingAssetsQueue[0].assetImageEl.textContent = str;
+    });
 }
 
 function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
 {
     var items = [
-        new ContextualItem({type:'custom', markup: "<strong>Add to Project</strong>" })
+        new ContextualItem({type: "custom", markup: "<strong>Add to Project</strong>"})
     ];
     
     projects.forEach(function (projectData)
@@ -196,8 +260,8 @@ function createVaultList()
     
     ipc.on("updateVault", function (event, data)
     {
-        console.log(data)
         if (data) {
+            console.log("Updating vault data.");
             vaultData = JSON.parse(data);
             createVaultEls();
         }
@@ -287,10 +351,4 @@ createVaultList();
 
 implementAddEngineButton();
 
-/*
-///TEMP: Launch button
-document.getElementById("temp423Launch").onclick = function ()
-{
-    launchEngine();
-};
-*/
+prepareForAddingAssets();

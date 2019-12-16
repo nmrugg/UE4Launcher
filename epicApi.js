@@ -11,6 +11,9 @@ var epicOauth;
 var epicSSO;
 var debug = false;
 
+var config;
+var getCookies;
+
 var cacheDir = p.join(__dirname, "cache");
 
 request = request.defaults({followRedirect: false, followAllRedirects: false});
@@ -43,17 +46,27 @@ function mkdirSync(dir)
     } catch (e) {}
 }
 
+function setCookiesFromBrowser(cookies)
+{
+    cookies.forEach(function (cookie)
+    {
+        fakeJar[cookie.name] = cookie.value;
+    });
+}
+
 function updateFakeJar(cookies)
 {
     var cookiePair;
     var i;
     
-    for (i = 0; i < cookies.length; ++i) {
-        cookiePair = cookies[i].split(";", 1)[0].split("=");
-        fakeJar[cookiePair[0]] = cookiePair[1];
-        
-        if (cookiePair[1] === "invalid") {
-            delete fakeJar[cookiePair[0]];
+    if (cookies) {
+        for (i = 0; i < cookies.length; ++i) {
+            cookiePair = cookies[i].split(";", 1)[0].split("=");
+            fakeJar[cookiePair[0]] = cookiePair[1];
+            
+            if (cookiePair[1] === "invalid") {
+                delete fakeJar[cookiePair[0]];
+            }
         }
     }
 }
@@ -109,10 +122,11 @@ var login = (function ()
                 rememberMe: "YES"
             },
             headers: {
-            Cookie: getWebCookieString(), Origin: "allar_ue4_marketplace_commandline" ,
-            "Accept-Language": "en-US,en;q=0.8",
-            Host: "accounts.unrealengine.com",
-            "X-XSRF-TOKEN": fakeJar["XSRF-TOKEN"],
+                Cookie: getWebCookieString(),
+                Origin: "allar_ue4_marketplace_commandline" ,
+                "Accept-Language": "en-US,en;q=0.8",
+                Host: "accounts.unrealengine.com",
+                "X-XSRF-TOKEN": fakeJar["XSRF-TOKEN"],
             }
         };
     
@@ -185,7 +199,10 @@ var login = (function ()
         
         request.get(opts, function(err, res, body)
         {
+            console.log(body);
+            console.log(res.headers)
             if (!err && res.statusCode == 302) {
+                
                 updateFakeJar(res.headers["set-cookie"]);
                 onprogress(4, "Web Exchange successful", totalSteps);
                 oAuthViaPassword(code, ondone, onerror, onprogress);
@@ -320,7 +337,7 @@ var login = (function ()
         });
     }
     
-    return function login(user, pass, ondone, onerror, onprogress)
+    webAuthorize.withUsernameAndPass = function login(user, pass, ondone, onerror, onprogress)
     {
         ondone = ondone || function () {};
         onerror = onerror || function () {};
@@ -329,6 +346,8 @@ var login = (function ()
         var auth = require("./etc/auth.json");
         getWebLoginForm(auth.u, auth.p, ondone, onerror, onprogress);
     };
+    
+    return webAuthorize;
 }());
 
 
@@ -352,7 +371,7 @@ function getAssetInfo(catalogItemId, cb)
         }
         
         if (err || !json) {
-            loginIfNecessary(null, null, function ()
+            authenticateIfNecessary(null, null, function ()
             {
                 downloadAssetInfo(catalogItemId, function (err, assetInfo)
                 {
@@ -403,28 +422,29 @@ function downloadAssetInfo(catalogItemId, cb)
 
 function getItemVersions(itemInfo)
 {
-    var versions = [];
+    var versions = {};
     
     itemInfo.releaseInfo.forEach(function oneachRelease(releaseInfo)
     {
         if (releaseInfo.compatibleApps) {
             releaseInfo.compatibleApps.forEach(function oneachApp(compatibleApp)
             {
-                var minorVersion = Number(compatibleApp.substr(5)); /// Cut off "UE_4."
-                versions.push({
-                    title: "4." + minorVersion,
+                var minorVersion = Number(compatibleApp.substr(3)); /// Cut off "UE_4."
+                versions[minorVersion] = {
                     appId: releaseInfo.appId,
                     version: compatibleApp,
                     minorVersion: minorVersion,
-                });
+                };
             });
         }
     });
+    /*
     // Sorts latest version first
     versions.sort(function reverseNumberSort(a, b)
     {
         return b.minorVersion - a.minorVersion;
     });
+    */
     return versions;
 }
 
@@ -451,7 +471,7 @@ function getItemBuildInfo(catalogItemId, appId, cb)
         }
         
         if (err || !json) {
-            loginIfNecessary(null, null, function ()
+            authenticateIfNecessary(null, null, function ()
             {
                 downloadItemBuildInfo(catalogItemId, appId, function (err, itemBuildInfo)
                 {
@@ -518,7 +538,7 @@ function getItemManifest(itemBuildInfo, cb, useAuth)
         }
         
         if (err || !json) {
-            loginIfNecessary(null, null, function ()
+            authenticateIfNecessary(null, null, function ()
             {
                 downloadItemManifest(itemBuildInfo, function (err, itemBuildInfo)
                 {
@@ -642,6 +662,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
 {
     var appId = manifest.AppNameString;
     var concurrent = 4;
+    var downloadCount = 0;
     var len = chunks.length;
     var hasFinished = false;
     var j;
@@ -713,7 +734,9 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
             encoding: null, /// Download the file with binary encoding
         };
         
-        console.log("Downloading " + (i + 1) + " of " + len + " " + chunk.url);
+        if (debug) {
+            console.log("Downloading " + (i + 1) + " of " + len + " " + chunk.url);
+        }
         
         // ///HACK: TEMP so that we don't have to redownload
         // var pathFake = p.join(dir, chunk.hash + "_" + chunk.filename);
@@ -734,7 +757,11 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
                     ///TODO: Stop? Retry?
                     onerror(err);
                 } else {
-                    console.log("Downloaded " + (i + 1) + " (" + Math.round(((i + 1) / len) * 100) + "%)");
+                    if (debug) {
+                        console.log("Downloaded " + (i + 1) + " (" + Math.round(((i + 1) / len) * 100) + "%)");
+                    }
+                    downloadCount++;
+                    onprogress(downloadCount / len);
                     chunk.downloadStatus = downloaded;
                     downloadChunk(++i);
                 }
@@ -851,9 +878,11 @@ function extractChunks(manifest, ondone, onerror, onprogress)
             fileSize += parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
         });
         
+        /*
         console.log(fileList)
         console.log(fileSize)
         console.log(fileName)
+        */
         
         var buffer = Buffer.alloc(fileSize);
         var bufferOffset = 0;
@@ -883,11 +912,13 @@ function extractChunks(manifest, ondone, onerror, onprogress)
         });
         
         // Write out the assembled buffer
-        console.log(fileName)
+        //console.log(fileName)
         fs.writeFileSync(fileName, buffer);
         
         ///TODO: Delete a chunk when it is no longer necessary.
         ///NOTE: One chunk may be used for many files.
+        
+        onprogress(i + 1 / filesCount);
         
         setImmediate(loop, i + 1);
         ///TODO: Progress
@@ -924,18 +955,22 @@ downloadChunks(manifest, chunks, function ondone()
 return;
 */
 
-function loginIfNecessary(user, pass, ondone, onerror, onprogress)
+function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
 {
     if (epicOauth) {
         setImmediate(ondone);
     } else {
-        login(user, pass, ondone, onerror || function onerror(err, message)
+        getCookies(function (cookies)
         {
-            console.error(message);
-            console.error(err);
-        }, onprogress || function progress(amount, message, total)
-        {
-            console.log(message + " " + Math.round((amount / total) * 100) + "%");
+            setCookiesFromBrowser(cookies);
+            login(ondone, onerror || function onerror(err, message)
+            {
+                console.error(message);
+                console.error(err);
+            }, onprogress || function progress(amount, message, total)
+            {
+                console.log(message + " " + Math.round((amount / total) * 100) + "%");
+            });
         });
     }
 }
@@ -943,26 +978,31 @@ function loginIfNecessary(user, pass, ondone, onerror, onprogress)
 /// Make sure cacheDir exists.
 mkdirSync(cacheDir);
 
-//login(null, null, function ondone()
-//{
-    //var id = "9af8943b537a4bc0a0cb962bccb0d3cd"; /// Brushify.io
-    var id = "be35e1818bc0425bbe957b8f642dc43e"; /// Gideon
-    //var id = "d64e30482a3046318029240b276cbd72"; // "Free Fantasy Weapon Sample Pack"
+function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
+{
+    var id = assetData.catalogItemId;
+    var projectVersion = projectData.version;
+    var projectBaseDir = projectData.dir;
     
     console.log("Getting asset info...");
     getAssetInfo(id, function (err, assetInfo)
     {
         var versions = getItemVersions(assetInfo);
+        
+        if (!versions[projectVersion]) {
+            return onerror("Version " + projectVersion + " is not avaiable.");
+        }
+        ///TODO: Skip getting build info if already extracted
         console.log("Getting build info...");
-        getItemBuildInfo(id, versions[0].appId, function (err, itemBuildInfo)
+        getItemBuildInfo(id, versions[projectVersion].appId, function (err, itemBuildInfo)
         {
+            ///TODO: Skip getting manifest if already extracted
             console.log("Getting item manifest...");
             getItemManifest(itemBuildInfo, function (err, manifest)
             {
-                ///TODO: It's important to store the manifest file on the hard drive because it seems to block you from downloading it multiple times.
-                ///      Should store each step.
                 var chunks = buildItemChunkListFromManifest(manifest);
                 
+                ///TODO: Skip downloading chunks if already extracted
                 console.log("Downloading chunks...");
                 downloadChunks(manifest, chunks, function ondone()
                 {
@@ -972,23 +1012,32 @@ mkdirSync(cacheDir);
                         ///TODO: Delete chunks
                         ///      Move files
                         console.log("Extracted chunks!")
-                    }, function onerror(err)
+                        moveToProject(manifest, projectBaseDir, function ()
+                        {
+                            ondone();
+                        });
+                    }, function (err)
                     {
                         console.error(err);
-                    }, function onprogress(percent)
+                        onerror(err);
+                    }, function (percent)
                     {
-                        console.log(Math.round(percent * 100) + "%");
+                        //console.log(Math.round(percent * 100) + "%");
+                        onprogress({type: "extracting", percent: percent});
                     });
-                }, function onerror(err)
+                }, function (err)
                 {
                     console.error(err);
-                }, function onprogress(percent)
+                    onerror(err);
+                }, function (percent)
                 {
-                    console.log(Math.round(percent * 100) + "%");
+                    //console.log(Math.round(percent * 100) + "%");
+                    onprogress({type: "downloading", percent: percent});
                 });
             });
         });
     });
+}
 /*
 }, function onerror(err, message)
 {
@@ -999,3 +1048,12 @@ mkdirSync(cacheDir);
     console.log(message + " " + Math.round((amount / total) * 100) + "%");
 });
 */
+
+
+module.exports = function init(_config, _getCookies)
+{
+    config = _config;
+    getCookies = _getCookies;
+    
+    return addAssetToProject;
+};
