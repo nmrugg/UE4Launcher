@@ -43,16 +43,16 @@ Hope for the best.
 <h2>Screenshots</h2>
 
 Login Screen
-[Login Screen](docs/images/0-login.png)
+![Alt Login Screen](docs/images/0-login.png)
 
 My Projects
-[My Projects](docs/images/1-my-projects.jpg)
+![Alt My Projects](docs/images/1-my-projects.jpg)
 
 Add Assets Menu
-[Add Assets Menu](docs/images/2-asset-menu.jpg)
+![Alt Add Assets Menu](docs/images/2-asset-menu.jpg)
 
 Downloading Assets
-[Downloading Assets](docs/images/3-downloading-asset.jpg)
+![Alt Downloading Assets](docs/images/3-downloading-asset.jpg)
 
 Asset Installed in UE4
-[Asset Installed](docs/images/4-in-ue4.jpg)
+![Alt Asset Installed](docs/images/4-in-ue4.jpg)
