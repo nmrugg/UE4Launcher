@@ -52,7 +52,7 @@ npm i
 
 Run the launcher:
 ```bash
-./launcher.sh
+npm start
 ```
 
 Hope for the best.
