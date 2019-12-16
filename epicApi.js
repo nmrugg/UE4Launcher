@@ -721,6 +721,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
                 process.exit();
             }
             */
+            downloadCount++;
             return setImmediate(downloadChunk, ++i);
         }
         
