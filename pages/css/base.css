@@ -84,6 +84,11 @@ main header {
     padding-right: 18px;
 }
 
+nav header {
+    cursor: default;
+    user-select: none;
+}
+
 .tab {
     display: inline-block;
     padding: 18px 20px;
@@ -265,4 +270,8 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
 
 .installing-asset {
     filter: grayscale(1);
+}
+
+.not-implemented {
+    cursor: not-allowed;
 }
