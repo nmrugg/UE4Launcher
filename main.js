@@ -415,7 +415,10 @@ function login(cb)
         if (typeof title === "string" && title.indexOf("Logging out") > -1) {
             console.log("Detected logout. Trying to log in.");
             /// Redirect to the login page.
-            loginWindow.loadURL("https://www.unrealengine.com/login");
+            setTimeout(function ()
+            {
+                loginWindow.loadURL("https://www.unrealengine.com/login");
+            }, 50);
         }
     });
 }
