@@ -1,0 +1,58 @@
+<h1>The Unofficial Cross-Platform UE4 Launcher</h1>
+
+<strong><pre>This is a work in progress. Here be dragons!</pre></strong>
+
+This project is an unofficial cross-platform <a href="https://www.unrealengine.com/">Unreal Engine 4</a> Launcher that aims to be fully featured and work naively on Linux (as well as Windows and Mac).
+
+<h2>Features</h2>
+
+The launcher is incomplete; however, it should be able to preform most of the important tasks.
+
+It can launch projects as well as download and install assets and plugins.
+
+It does not yet install the UE4 engine. So, you need to <a href=https://docs.unrealengine.com/en-US/GettingStarted/Installation>manually install</a> that first.
+
+There are problem many bugs still, so please file an issue if you have a problem.
+
+<h2>Installation</h2>
+
+First, install <a href=https://nodejs.org/en/download/>node.js</a>.
+
+Then pull the project:
+```bash
+git clone ...
+```
+
+Change directory:
+```bash
+cd UE4Launcher
+```
+
+Install the dependencies:
+```bash
+npm i
+```
+
+Run the launcher:
+```bash
+./launcher.sh
+```
+
+Hope for the best.
+
+<h2>Screenshots</h2>
+
+Login Screen
+[Login Screen](docs/images/0-login.png)
+
+My Projects
+[My Projects](docs/images/1-my-projects.jpg)
+
+Add Assets Menu
+[Add Assets Menu](docs/images/2-asset-menu.jpg)
+
+Downloading Assets
+[Downloading Assets](docs/images/3-downloading-asset.jpg)
+
+Asset Installed in UE4
+[Asset Installed](docs/images/4-in-ue4.jpg)
