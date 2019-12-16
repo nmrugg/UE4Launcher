@@ -12,7 +12,7 @@ var ipc = electron.ipcMain;
 var loginWindow;
 var isLoggedIn = false;
 var cookies;
-var offline = true;
+var offline = false;
 
 var cacheDir = p.join(__dirname, "cache");
 var vaultPath = p.join(cacheDir, "vault.json");
@@ -509,32 +509,42 @@ function getVault()
     return vaultData;
 }
         
-function updateVault(cb)
+function updateVault(ignoreCache, cb)
 {
+    var shouldDownload;
+    
     if (offline) {
         if (cb) {
             setImmediate(cb);
         }
     } else {
-        downloadVaultData(function (data)
-        {
-            if (data) {
-                vaultData = data;
-            } else {
-                vaultData = [];
+        shouldDownload = true;
+        
+        try {
+            /// Only update the vault every 18 hours by default.
+            if (!ignoreCache && fs.existsSync(vaultPath) && Date.now() - fs.statSync(vaultPath).mtime.valueOf() < 1000 * 60 * 60 * 18) {
+                shouldDownload = false;
             }
-            /*
-            console.log(vault);
-            console.log(vault.length);
-            
-            */
-            
-            fs.writeFileSync(vaultPath, JSON.stringify(vaultData));
-            
-            if (cb) {
-                cb(vaultData);
-            }
-        });
+        } catch (e) {}
+        
+        if (shouldDownload) {
+            downloadVaultData(function (data)
+            {
+                if (data) {
+                    vaultData = data;
+                } else {
+                    vaultData = [];
+                }
+                
+                fs.writeFileSync(vaultPath, JSON.stringify(vaultData));
+                
+                if (cb) {
+                    cb(vaultData);
+                }
+            });
+        } else {
+            setImmediate(cb);
+        }
     }
 }
 
@@ -691,11 +701,11 @@ ipc.on("getVault", function (e/*, arg*/)
     e.returnValue = JSON.stringify(getVault());
 });
 
-ipc.on("updateVault", function (e/*, arg*/)
+ipc.on("updateVault", function (e, ignoreCache)
 {
     console.log("updating vault");
     
-    updateVault(function (data)
+    updateVault(ignoreCache, function (data)
     {
         e.reply("updateVault", data ? JSON.stringify(data) : "");
     });
