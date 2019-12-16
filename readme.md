@@ -2,7 +2,7 @@
 
 <strong><pre>This is a work in progress. Here be dragons!</pre></strong>
 
-This project is an unofficial cross-platform <a href="https://www.unrealengine.com/">Unreal Engine 4</a> Launcher that aims to be fully featured and work naively on Linux (as well as Windows and Mac).
+This project is an unofficial cross-platform <a href="https://www.unrealengine.com/">Unreal Engine 4</a> Launcher that aims to be fully featured and work natively on Linux (as well as Windows and Mac).
 
 <h2>Features</h2>
 
