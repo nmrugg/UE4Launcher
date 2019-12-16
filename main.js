@@ -23,6 +23,7 @@ var configPath = p.join(__dirname, "config.json");
 var vaultData;
 var configData;
 
+var devtools = false;
 
 function mkdirSync(dir)
 {
@@ -450,7 +451,7 @@ function createMainWindow()
         webPreferences: {
             //preload: p.join(__dirname, "preload.js")
             nodeIntegration: true,
-            devTools: true,
+            devTools: devtools,
         },
         
         icon: p.join(__dirname, "ue-logo.png"),
@@ -461,7 +462,9 @@ function createMainWindow()
     // and load the index.html of the app.
     mainWindow.loadFile("pages/unreal_engine.html");
     
-    mainWindow.webContents.openDevTools()
+    if (devtools) {
+        mainWindow.webContents.openDevTools()
+    }
     mainWindow.maximize();
     
     mainWindow.on("close", function ()
