@@ -152,8 +152,6 @@ function prepareForAddingAssets()
 {
     function processQueue()
     {
-        addingAssetsQueue.pop();
-        
         if (addingAssetsQueue.length) {
             ipc.send("addAssetToProject", JSON.stringify({
                 assetData: addingAssetsQueue[0].assetData,
@@ -162,20 +160,28 @@ function prepareForAddingAssets()
         }
     }
     
+    function onfinish()
+    {
+        addingAssetsQueue[0].assetImageEl.textContent = "";
+        addingAssetsQueue[0].assetContainerEl.classList.remove("installing-asset");
+        addingAssetsQueue.pop();
+        processQueue();
+    }
+    
     ipc.on("addingAssetDone", function (event, data)
     {
         data = parseJson(data);
+        console.log("Asset finished installing");
         console.log(data);
-        addingAssetsQueue[0].assetContainerEl.classList.remove("installing-asset");
-        processQueue();
+        onfinish();
     });
     
     ipc.on("addingAssetErr", function (event, data)
     {
         data = parseJson(data);
-        console.err(data);
-        addingAssetsQueue[0].assetContainerEl.classList.remove("installing-asset");
-        processQueue();
+        console.error("Asset installation falied");
+        console.error(data);
+        onfinish();
     });
     
     ipc.on("addingAssetProgress", function (event, data)
@@ -189,9 +195,13 @@ function prepareForAddingAssets()
             str = "Downloading...";
         } else if (data.progress.type === "extracting") {
             str = "Extracting...";
+        } else if (data.progress.type === "copying") {
+            str = "Copying...";
         }
         
-        str += (data.progress.percent * 100).toFixed(2) + "%";
+        if (data.progress.percent) {
+            str += (data.progress.percent * 100).toFixed(2) + "%";
+        }
         
         addingAssetsQueue[0].assetImageEl.textContent = str;
     });

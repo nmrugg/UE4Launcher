@@ -918,7 +918,7 @@ function extractChunks(manifest, ondone, onerror, onprogress)
         ///TODO: Delete a chunk when it is no longer necessary.
         ///NOTE: One chunk may be used for many files.
         
-        onprogress(i + 1 / filesCount);
+        onprogress((i + 1) / filesCount);
         
         setImmediate(loop, i + 1);
         ///TODO: Progress
@@ -975,6 +975,62 @@ function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
     }
 }
 
+function moveToProject(appNameString, projectBaseDir, ondone, onerror)
+{
+    var extractedBasePath = p.join(cacheDir, "assets", appNameString, "extracted");
+    
+    function copyDir(fromDir, toDir, cb)
+    {
+        fs.readdir(fromDir, function onread(err, files)
+        {
+            var len;
+            
+            if (err) {
+                return onerror(err);
+            }
+            
+            len = files.length;
+            
+            (function loop(i)
+            {
+                var fullFromPath;
+                var fullToPath;
+                
+                function next()
+                {
+                    setImmediate(loop, i + 1);
+                }
+                
+                if (i >= len) {
+                    return setImmediate(cb);
+                }
+                
+                fullFromPath = p.join(fromDir, files[i]);
+                fullToPath = p.join(toDir, files[i]);
+                
+                ///TODO: Error handling
+                if (fs.lstatSync(fullFromPath).isDirectory()) {
+                    ///TODO: Error handling
+                    //console.log(fullToPath);
+                    mkdirSync(fullToPath);
+                    setImmediate(copyDir, fullFromPath, fullToPath, next);
+                } else {
+                    //console.log("file:", fullToPath);
+                    fs.copyFile(fullFromPath, fullToPath, function oncopy(err)
+                    {
+                        if (err) {
+                            return onerror(err);
+                        }
+                        next();
+                    });
+                }
+            }(0));
+        });
+    }
+    
+    copyDir(extractedBasePath, projectBaseDir, ondone);
+}
+
 /// Make sure cacheDir exists.
 mkdirSync(cacheDir);
 
@@ -992,29 +1048,31 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
         if (!versions[projectVersion]) {
             return onerror("Version " + projectVersion + " is not avaiable.");
         }
-        ///TODO: Skip getting build info if already extracted
+        ///TODO: Skip getting build info if already extracted?
         console.log("Getting build info...");
         getItemBuildInfo(id, versions[projectVersion].appId, function (err, itemBuildInfo)
         {
-            ///TODO: Skip getting manifest if already extracted
+            ///TODO: Skip getting manifest if already extracted?
             console.log("Getting item manifest...");
             getItemManifest(itemBuildInfo, function (err, manifest)
             {
                 var chunks = buildItemChunkListFromManifest(manifest);
                 
-                ///TODO: Skip downloading chunks if already extracted
+                ///TODO: Skip downloading chunks if already extracted!
                 console.log("Downloading chunks...");
-                downloadChunks(manifest, chunks, function ondone()
+                downloadChunks(manifest, chunks, function ()
                 {
                     console.log("Downloaded chunks!")
-                    extractChunks(manifest, function ondone()
+                    extractChunks(manifest, function ()
                     {
                         ///TODO: Delete chunks
                         ///      Move files
                         console.log("Extracted chunks!")
-                        moveToProject(manifest, projectBaseDir, function ()
+                        onprogress({type: "copying"});
+                        moveToProject(manifest.AppNameString, projectBaseDir, ondone, function (err)
                         {
-                            ondone();
+                            console.error(err);
+                            onerror(err);
                         });
                     }, function (err)
                     {

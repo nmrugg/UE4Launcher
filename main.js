@@ -772,7 +772,7 @@ ipc.on("addAssetToProject", function (e, data)
     
     data = JSON.parse(data);
     
-    resId = {asset: data.assetData.name, project: data.projectData.name};
+    resId = {asset: data.assetData.catalogItemId, project: data.projectData.name};
     
     console.log(data);
     console.log(resId);
