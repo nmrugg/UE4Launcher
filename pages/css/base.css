@@ -239,6 +239,8 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     display: inline-block;
     width: 175px;
     padding: 10px;
+    cursor: pointer;
+    transition: 500ms filter;
 }
 
 .vault-item-image {
@@ -247,8 +249,19 @@ clip-path: polygon(50% 0%, 100% 25%, 100% 100%, 50% 100%, 0% 75%, 0 0);
     display: inline-block;
     background-repeat: no-repeat;
     background-size: 175px;
+    
+    text-align: center;
+    vertical-align: text-top;
+    color: #eee;
+    text-shadow: 0 0 3px black, 0 0 2px black;
+    font-weight: bold;
 }
 
 .vault-item-title {
     color: #eee;
+}
+
+
+.installing-asset {
+    filter: grayscale(1);
 }

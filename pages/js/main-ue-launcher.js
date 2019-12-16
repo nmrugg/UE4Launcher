@@ -13,6 +13,7 @@ var lastEngineLaunched;
 var lastProjectLaunched;
 var lastProjectLaunchedTime;
 
+var projects;
 var vaultData;
 var configData;
 
@@ -33,8 +34,9 @@ function parseJson(str, defaultVal)
 function createProjectList()
 {
     var projectsAreaEl = document.getElementById("projects");
-    var projects = getProjects(configData.engines);
     var defaultThumb = "imgs/default_game_thumbnail.png";
+    
+    projects = getProjects(configData.engines);
     
     projectsAreaEl.innerHTML = "";
     
@@ -124,6 +126,33 @@ function launchEngine(enginePath, project)
     }
 }
 
+function addAssetToProject(assetData, projectData, assetContainerEl, assetImageEl)
+{
+    assetContainerEl.classList.add("installing-asset");
+    assetImageEl.textContent = "Downloading...";
+    ///TODO:
+}
+
+function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
+{
+    var items = [
+        new ContextualItem({type:'custom', markup: "<strong>Add to Project</strong>" })
+    ];
+    
+    projects.forEach(function (projectData)
+    {
+        items.push(new ContextualItem({
+            label: projectData.name,
+            onClick: function ()
+            {
+                addAssetToProject(assetData, projectData, assetContainerEl, assetImageEl);
+            }
+        }));
+    });
+    
+    return items;
+}
+
 function createVaultList()
 {
     function createVaultEls()
@@ -148,6 +177,20 @@ function createVaultList()
             container.appendChild(img);
             container.appendChild(title);
             vaultEl.appendChild(container);
+            
+            function showAddToProjectMenu(e)
+            {
+                ///TODO: Don't show if already downloading.
+                e.preventDefault();
+                new Contextual({
+                    isSticky: false,
+                    width: '250px',
+                    items: createAddProjectMenuItems(item, container, img),
+                });
+            };
+            
+            container.onclick = showAddToProjectMenu;
+            container.oncontextmenu = showAddToProjectMenu;
         });
     }
     
