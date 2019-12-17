@@ -56,3 +56,10 @@ npm start
 ```
 
 Hope for the best.
+
+<h2>Thanks</h2>
+
+Since I don't use Windows or macOS, I've never used the official UE4 launcher. So, these open source projects were invaluable to help me understand how the launcher worked.
+
+ * https://github.com/Allar/ue4-mp-downloader
+ * https://github.com/neutrino-steak/UE4LinuxLauncher
