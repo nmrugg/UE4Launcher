@@ -542,14 +542,14 @@ function getItemManifest(itemBuildInfo, cb, useAuth)
         if (err || !json) {
             authenticateIfNecessary(null, null, function ()
             {
-                downloadItemManifest(itemBuildInfo, function (err, itemBuildInfo)
+                downloadItemManifest(itemBuildInfo, -1, useAuth, function (err, itemBuildInfo)
                 {
                     if (!err && itemBuildInfo) {
                         mkdirSync(basePath);
                         fs.writeFileSync(path, JSON.stringify(itemBuildInfo));
                     }
                     cb(err, itemBuildInfo);
-                }, -1, useAuth);
+                });
             });
         } else {
             ///TEMP
@@ -562,10 +562,11 @@ function getItemManifest(itemBuildInfo, cb, useAuth)
 function selectDistributionHost(itemBuildInfo, hostNum)
 {
     var distributionName;
+    
     if (hostNum < 0) {
         distributionName = itemBuildInfo.items.MANIFEST.distribution;
-    } else if (itemBuildInfo.items.MANIFEST.distribution.additionalDistributions && hostNum < itemBuildInfo.items.MANIFEST.distribution.additionalDistributions.length) {
-        distributionName = itemBuildInfo.items.MANIFEST.distribution.additionalDistributions[hostNum];
+    } else if (itemBuildInfo.items.MANIFEST.additionalDistributions && hostNum < itemBuildInfo.items.MANIFEST.additionalDistributions.length) {
+        distributionName = itemBuildInfo.items.MANIFEST.additionalDistributions[hostNum];
     }
     
     if (distributionName && distributionName.slice(-1) !== "/") {
@@ -575,7 +576,7 @@ function selectDistributionHost(itemBuildInfo, hostNum)
     return distributionName;
 }
 
-function downloadItemManifest(itemBuildInfo, cb, hostNum, useAuth)
+function downloadItemManifest(itemBuildInfo, hostNum, useAuth, cb)
 {
     var distributionName = selectDistributionHost(itemBuildInfo, hostNum);
     var opts = {
@@ -609,7 +610,7 @@ function downloadItemManifest(itemBuildInfo, cb, hostNum, useAuth)
             console.log("Using auth");
             console.error(body);
             
-            downloadItemManifest(itemBuildInfo, cb, hostNum, true);
+            downloadItemManifest(itemBuildInfo, hostNum, true, cb);
         } else if (err || res.statusCode !== 200) {
             console.error(err);
             if (res) {
@@ -617,7 +618,7 @@ function downloadItemManifest(itemBuildInfo, cb, hostNum, useAuth)
             }
             console.error(opts);
             console.error(body);
-            downloadItemManifest(itemBuildInfo, cb, ++hostNum, useAuth);
+            downloadItemManifest(itemBuildInfo, ++hostNum, useAuth, cb);
         } else {
             manifest = JSON.parse(body);
             cb(null, manifest);
@@ -1056,7 +1057,13 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
             console.log("Getting item manifest...");
             getItemManifest(itemBuildInfo, function (err, manifest)
             {
-                var chunks = buildItemChunkListFromManifest(manifest);
+                var chunks;
+                
+                if (err) {
+                    console.error(err);
+                    return onerror(err);
+                }
+                chunks = buildItemChunkListFromManifest(manifest);
                 
                 ///TODO: Skip downloading chunks if already extracted!
                 console.log("Downloading chunks...");
