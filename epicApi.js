@@ -549,7 +549,7 @@ function getItemManifest(itemBuildInfo, cb, useAuth)
                         fs.writeFileSync(path, JSON.stringify(itemBuildInfo));
                     }
                     cb(err, itemBuildInfo);
-                }, useAuth);
+                }, -1, useAuth);
             });
         } else {
             ///TEMP
@@ -559,10 +559,27 @@ function getItemManifest(itemBuildInfo, cb, useAuth)
     });
 }
 
-function downloadItemManifest(itemBuildInfo, cb, useAuth)
+function selectDistributionHost(itemBuildInfo, hostNum)
 {
+    var distributionName;
+    if (hostNum < 0) {
+        distributionName = itemBuildInfo.items.MANIFEST.distribution;
+    } else if (itemBuildInfo.items.MANIFEST.distribution.additionalDistributions && hostNum < itemBuildInfo.items.MANIFEST.distribution.additionalDistributions.length) {
+        distributionName = itemBuildInfo.items.MANIFEST.distribution.additionalDistributions[hostNum];
+    }
+    
+    if (distributionName && distributionName.slice(-1) !== "/") {
+        distributionName += "/";
+    }
+    
+    return distributionName;
+}
+
+function downloadItemManifest(itemBuildInfo, cb, hostNum, useAuth)
+{
+    var distributionName = selectDistributionHost(itemBuildInfo, hostNum);
     var opts = {
-        uri: itemBuildInfo.items.MANIFEST.distribution + itemBuildInfo.items.MANIFEST.path + "?" + itemBuildInfo.items.MANIFEST.signature,
+        uri: distributionName + itemBuildInfo.items.MANIFEST.path + "?" + itemBuildInfo.items.MANIFEST.signature,
         headers: {
             Origin: "allar_ue4_marketplace_commandline",
             "User-Agent": "game=UELauncher, engine=UE4, build=allar_ue4_marketplace_commandline",
@@ -572,6 +589,11 @@ function downloadItemManifest(itemBuildInfo, cb, useAuth)
             label: "Live"
         },
     };
+    
+    if (!distributionName) {
+        console.error("No more distrubition hosts to try for manifest.");
+        return cb(new Error("No more distrubition hosts to try for manifest."));
+    }
     
     if (useAuth) {
         opts.headers.Authorization = "bearer " + epicOauth.access_token;
@@ -587,14 +609,15 @@ function downloadItemManifest(itemBuildInfo, cb, useAuth)
             console.log("Using auth");
             console.error(body);
             
-            downloadItemManifest(itemBuildInfo, cb, true);
+            downloadItemManifest(itemBuildInfo, cb, hostNum, true);
         } else if (err || res.statusCode !== 200) {
             console.error(err);
             if (res) {
                 console.error(res.statusCode);
             }
+            console.error(opts);
             console.error(body);
-            cb(err || res);
+            downloadItemManifest(itemBuildInfo, cb, ++hostNum, useAuth);
         } else {
             manifest = JSON.parse(body);
             cb(null, manifest);
@@ -608,7 +631,7 @@ function byteToHex(b)
   return hexChars[(b >> 4) & 0x0f] + hexChars[b & 0x0f];
 }
 
-// Takes hash of 24-character decimal form (8 * 3char) and outputs 16-character hex in reverse byte order
+/// Takes hash of 24-character decimal form (8 * 3char) and outputs 16-character hex in reverse byte order
 function chunkHashToReverseHexEncoding(chunkHash)
 {
     var outHex = "";
@@ -628,9 +651,7 @@ function buildItemChunkListFromManifest(manifest)
     var hash;
     var group;
     var filename;
-    //Ref: https://download.epicgames.com/Builds/Rocket/Automated/MagicEffects411/CloudDir/ChunksV3/22/AAC7EF867364B218_CE3BE4D54E7B4ECE663C8EAC2D8929D6.chunk
-    ///TODO: Use domain from manifest
-    var chunkBaseURL = "http://download.epicgames.com/Builds/Rocket/Automated/" + manifest.AppNameString + "/CloudDir/ChunksV3/";
+    var chunkBaseURL = "Builds/Rocket/Automated/" + manifest.AppNameString + "/CloudDir/ChunksV3/";
     for (guid in manifest.ChunkHashList) {
         hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
         ///I Think I can just do manifest.DataGroupList[guid].substr(1);
@@ -647,6 +668,7 @@ function buildItemChunkListFromManifest(manifest)
             //fileSize: manifest.ChunkFilesizeList[guid],
             url: chunkBaseURL + group + "/" + hash + "_" + filename,
             filename: filename,
+            hostNum: -1,
         });
     }
     return chunks;
@@ -657,7 +679,7 @@ function isHashCorrect(data, expectedHash)
     return crypto.createHash("sha1").update(data).digest("hex").toUpperCase() === expectedHash;
 }
 
-function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
+function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprogress)
 {
     var appId = manifest.AppNameString;
     var concurrent = 4;
@@ -693,6 +715,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         var dir;
         var path;
         var opts;
+        var distributionName;
         
         if (i >= len) {
             return isAllDone();
@@ -728,15 +751,25 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
         
         mkdirSync(dir);
         
+        distributionName = selectDistributionHost(itemBuildInfo, chunk.hostNum);
+        
+        if (!distributionName) {
+            console.error("No more distrubition hosts to try for chunk.");
+            return onerror(new Error("No more distrubition hosts to try for chunk."));
+        }
+        
         opts = {
-            url: chunk.url,
+            url: distributionName + chunk.url,
             timeout: 30000,
             encoding: null, /// Download the file with binary encoding
         };
         
         if (debug) {
-            console.log("Downloading " + (i + 1) + " of " + len + " " + chunk.url);
+            console.log("Downloading " + (i + 1) + " of " + len + " " + opts.url);
         }
+        console.log("Downloading " + (i + 1) + " of " + len + " " + opts.url);
+        
+        chunk.hostNum++;
         
         request.get(opts, function(err, res, body)
         {
@@ -748,6 +781,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
             {
                 if (err) {
                     console.error(err);
+                    console.error(opts);
                     ///TODO: Stop? Retry?
                     onerror(err);
                 } else {
@@ -763,8 +797,11 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
             
             if (err || res.statusCode >= 400) {
                 console.error(err || res.statusCode);
-                ///TODO: Stop? Retry?
-                onerror(err);
+                console.error(opts);
+                /// Try another distribution host.
+                //onerror(err);
+                chunk.downloadStatus = undefined;
+                return downloadChunk(i);
             } else {
                 
                 headerSize = body[8];
@@ -918,35 +955,6 @@ function extractChunks(manifest, ondone, onerror, onprogress)
 }
 
 
-/*
-var manifest = require("./etc/manifest-formated.json");
-var chunks = buildItemChunkListFromManifest(manifest);
-downloadChunks(manifest, chunks, function ondone()
-{
-    console.log("Downloaded chunks!")
-    extractChunks(manifest, function ondone()
-    {
-        ///TODO: Delete chunks
-        ///      Move files
-        console.log("Extracted chunks!")
-    }, function onerror(err)
-    {
-        console.error(err);
-    }, function onprogress(percent)
-    {
-        console.log(Math.round(percent * 100) + "%");
-    });
-}, function onerror(err)
-{
-    console.error(err);
-}, function onprogress(percent)
-{
-    console.log(Math.round(percent * 100) + "%");
-});
-
-return;
-*/
-
 function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
 {
     if (epicOauth) {
@@ -1052,7 +1060,7 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
                 
                 ///TODO: Skip downloading chunks if already extracted!
                 console.log("Downloading chunks...");
-                downloadChunks(manifest, chunks, function ()
+                downloadChunks(itemBuildInfo, manifest, chunks, function ()
                 {
                     console.log("Downloaded chunks!")
                     extractChunks(manifest, function ()
@@ -1088,16 +1096,6 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
         });
     });
 }
-/*
-}, function onerror(err, message)
-{
-    console.error(message);
-    console.error(err);
-}, function progress(amount, message, total)
-{
-    console.log(message + " " + Math.round((amount / total) * 100) + "%");
-});
-*/
 
 
 module.exports = function init(_config, _getCookies)
