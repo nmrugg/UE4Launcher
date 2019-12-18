@@ -16,6 +16,8 @@ var getCookies;
 
 var cacheDir = p.join(__dirname, "cache");
 
+var hexChars = "0123456789ABCDEF";
+
 request = request.defaults({followRedirect: false, followAllRedirects: false});
 
 /// Debugging
@@ -601,9 +603,6 @@ function downloadItemManifest(itemBuildInfo, cb, useAuth)
 }
 
 
-
-var hexChars = ["0", "1", "2", "3", "4", "5", "6", "7","8", "9", "A", "B", "C", "D", "E", "F"];
-
 function byteToHex(b)
 {
   return hexChars[(b >> 4) & 0x0f] + hexChars[b & 0x0f];
@@ -739,14 +738,8 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
             console.log("Downloading " + (i + 1) + " of " + len + " " + chunk.url);
         }
         
-        // ///HACK: TEMP so that we don't have to redownload
-        // var pathFake = p.join(dir, chunk.hash + "_" + chunk.filename);
-        // fs.readFile(pathFake, null, function(err, body)
         request.get(opts, function(err, res, body)
         {
-            // ///HACK: TEMP
-            // var res = {statusCode: 200};
-            
             var headerSize;
             var compressed;
             var data;
@@ -769,7 +762,7 @@ function downloadChunks(manifest, chunks, ondone, onerror, onprogress)
             }
             
             if (err || res.statusCode >= 400) {
-                console.error(err);
+                console.error(err || res.statusCode);
                 ///TODO: Stop? Retry?
                 onerror(err);
             } else {
@@ -862,15 +855,19 @@ function extractChunks(manifest, ondone, onerror, onprogress)
     
     (function loop(i)
     {
+        var fileList;
+        var fileSize;
+        var fileName;
+        var buffer;
+        var bufferOffset;
+        
         if (i >= filesCount) {
             return ondone();
         }
         
-        var fileList = fullFileList[i]; /// Rename to chunkList?
-        var fileSize = 0;
-        var fileName = p.join(extractedBasePath, fileList.Filename);
-        
-        if (p.dirname(fileName) === "/storage/UE4Launcher/downloads/Brushify9af8943b537aV1/extracted/Content/Brushify/DistanceMeshes/Mountain_Generic_01") debugger;
+        fileList = fullFileList[i]; /// Rename to chunkList?
+        fileSize = 0;
+        fileName = p.join(extractedBasePath, fileList.Filename);
         
         mkdirs(p.dirname(fileName), extractedBasePath);
         
@@ -879,14 +876,8 @@ function extractChunks(manifest, ondone, onerror, onprogress)
             fileSize += parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
         });
         
-        /*
-        console.log(fileList)
-        console.log(fileSize)
-        console.log(fileName)
-        */
-        
-        var buffer = Buffer.alloc(fileSize);
-        var bufferOffset = 0;
+        buffer = Buffer.alloc(fileSize);
+        bufferOffset = 0;
         
         // Start reading chunk data and assembling it into a buffer
         fileList.FileChunkParts.forEach(function (chunkPart)
