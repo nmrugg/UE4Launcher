@@ -520,7 +520,7 @@ function downloadItemBuildInfo(catalogItemId, appId, cb)
     });
 }
 
-function getItemManifest(itemBuildInfo, cb, useAuth)
+function getItemManifest(itemBuildInfo, useAuth, cb)
 {
     var basePath = p.join(cacheDir, "manifests");
     var path = p.join(basePath, itemBuildInfo.assetId + ".json");
@@ -1055,7 +1055,7 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
         {
             ///TODO: Skip getting manifest if already extracted?
             console.log("Getting item manifest...");
-            getItemManifest(itemBuildInfo, function (err, manifest)
+            getItemManifest(itemBuildInfo, true, function (err, manifest)
             {
                 var chunks;
                 
