@@ -270,6 +270,7 @@ function downloadURL(url, options, cb)
 function login(wantsCookies, cb)
 {
     var contents;
+    var needsToRedirect;
     
     /// Another url
     /// https://www.unrealengine.com/id/login?redirectUrl=https%3A%2F%2Fwww.unrealengine.com%2Fmarketplace%2Fen-US%2Fstore&client_id=932e595bedb643d9ba56d3e1089a5c4b&noHostRedirect=true
@@ -371,7 +372,12 @@ function login(wantsCookies, cb)
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
     {
         console.log("did-frame-navigate", url)
-        if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
+        
+        if (needsToRedirect) {
+            needsToRedirect = false;
+            loginWindow.loadURL("https://www.unrealengine.com/login");
+            console.log("Redirecting to login.");
+        } else if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
             onLogin();
         }
         //console.log("did-frame-navigate");
@@ -420,12 +426,9 @@ function login(wantsCookies, cb)
         ///TODO: Make sure it goes to the right page when logging out
         ///page-title-updated Logging out... | Epic Games true
         if (typeof title === "string" && title.indexOf("Logging out") > -1) {
-            console.log("Detected logout. Trying to log in.");
+            console.log("Detected logout. Will redirect to log in.");
             /// Redirect to the login page.
-            setTimeout(function ()
-            {
-                loginWindow.loadURL("https://www.unrealengine.com/login");
-            }, 50);
+            needsToRedirect = true;
         }
     });
 }
