@@ -443,12 +443,34 @@ function getCookies(cb)
     }
 }
 
+function sanitizeConfigWindowData()
+{
+    if (typeof configData.isMaximized !== "boolean") {
+        configData.isMaximized = true;
+    }
+    if (typeof configData.width !== "number" || configData.width < 100) {
+        configData.width = 1200;
+    }
+    if (typeof configData.height !== "number" || configData.height < 100) {
+        configData.height = 1000;
+    }
+    if (typeof configData.x !== "number" || typeof configData.y !== "number") {
+        configData.x = undefined;
+        configData.y = undefined;
+    }
+}
+
 function createMainWindow()
 {
+    sanitizeConfigWindowData();
+    console.log(configData)
+    
     // Create the browser window.
     mainWindow = new BrowserWindow({
-        width: 1309,
-        height: 1051,
+        width: configData.width, /// 1200
+        height: configData.height, /// 1000
+        x: configData.x,
+        y: configData.y,
         fullscreenable: true,
         webPreferences: {
             //preload: p.join(__dirname, "preload.js")
@@ -467,16 +489,45 @@ function createMainWindow()
     if (configData.devTools) {
         mainWindow.webContents.openDevTools()
     }
-    mainWindow.maximize();
+    
+    if (configData.isMaximized) {
+        mainWindow.maximize();
+    }
+    
+    function saveSizeAndPos()
+    {
+        var size = mainWindow.getSize();
+        var pos = mainWindow.getPosition();
+        configData.width = size[0];
+        configData.height = size[1];
+        configData.x = pos[0];
+        configData.y = pos[1];
+        saveConfig();
+    }
     
     mainWindow.on("close", function ()
     {
+        if (!configData.isMaximized) {
+            saveSizeAndPos();
+        }
         /// Make sure everything is closed.
         if (loginWindow) {
             try {
                 loginWindow.close();
             } catch (e) {}
         }
+    });
+    
+    mainWindow.on("maximize", function ()
+    {
+        configData.isMaximized = true;
+        saveConfig();
+    });
+    
+    mainWindow.on("unmaximize", function ()
+    {
+        configData.isMaximized = false;
+        saveSizeAndPos();
     });
 }
 
