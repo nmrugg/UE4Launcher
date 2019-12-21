@@ -1,5 +1,11 @@
 "use strict";
 
+/**
+ * Much of this code is derived from or inspired by these open source projects:
+ * https://github.com/Allar/ue4-mp-downloader
+ * https://github.com/neutrino-steak/UE4LinuxLauncher
+ */
+
 var fs = require("fs");
 var p = require("path");
 var request = require("request");
