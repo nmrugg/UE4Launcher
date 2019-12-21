@@ -235,6 +235,7 @@ legend {
     padding: 10px;
     cursor: pointer;
     transition: 500ms filter;
+    vertical-align: top;
 }
 
 .vault-item-image {
