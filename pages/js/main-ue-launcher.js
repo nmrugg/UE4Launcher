@@ -5,7 +5,9 @@ var os = require("os");
 var p = require("path");
 var spawn = require("child_process").spawn;
 var SHARED = require(p.join(__dirname, "..", "shared", "functions"));
-var ipc = require("electron").ipcRenderer;
+var electron = require("electron");
+var ipc = electron.ipcRenderer;
+var globalShortcut = electron.remote.globalShortcut;
 var getProjects = SHARED.getProjects;
 
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
@@ -351,6 +353,31 @@ function loadConfig()
     configData = parseJson(ipc.sendSync("getConfig"));
 }
 
+function registerShortcuts()
+{
+    function reload()
+    {
+        location.reload();
+    }
+    
+    function clearCacheAndReload()
+    {
+        ///TODO: Not sure if this works.
+        location.reload(true);
+    }
+    
+    globalShortcut.register("F5", reload);
+    globalShortcut.register("CommandOrControl+F5", reload);
+    globalShortcut.register("CommandOrControl+R", clearCacheAndReload);
+    
+    window.addEventListener("beforeunload", function ()
+    {
+        globalShortcut.unregister("F5", reload);
+        globalShortcut.unregister("CommandOrControl+F5", clearCacheAndReload);
+        globalShortcut.unregister("CommandOrControl+R", reload);
+    })
+}
+
 loadConfig();
 
 createEngineList();
@@ -362,3 +389,5 @@ createVaultList();
 implementAddEngineButton();
 
 prepareForAddingAssets();
+
+registerShortcuts();
