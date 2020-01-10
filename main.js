@@ -755,6 +755,7 @@ function addEngine(path)
         try {
             if (fs.existsSync(p.join(path, "UE4Editor"))) {
                 engineBasePath = p.join(path, "..", "..", "..");
+                execPath = p.join(path, "UE4Editor");
             }
         } catch (e) {}
     }
@@ -762,15 +763,13 @@ function addEngine(path)
     if (!engineBasePath) {
         /// Assume that it's the path to the root of the engine.
         engineBasePath = path;
+        ///TODO: Support other platforms
+        execPath = p.join(engineBasePath, "Engine", "Binaries", "Linux", "UE4Editor");
     }
     
     engineVersion = getEngineVersion(engineBasePath);
     
     if (engineVersion) {
-        if (!execPath) {
-            ///TODO: Support other platforms
-            execPath = p.join(engineBasePath, "Engine", "Binaries", "Linux", "UE4Editor");
-        }
         configData.engines.push({
             baseDir: engineBasePath,
             version: engineVersion,
