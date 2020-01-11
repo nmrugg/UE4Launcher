@@ -591,9 +591,7 @@ function downloadItemManifest(itemBuildInfo, hostNum, useAuth, cb)
             Origin: "allar_ue4_marketplace_commandline",
             "User-Agent": "game=UELauncher, engine=UE4, build=allar_ue4_marketplace_commandline",
             Accept: "*/*",
-        },
-        qs: {
-            label: "Live"
+            //Host: "www.unrealengine.com",
         },
     };
     
@@ -611,13 +609,14 @@ function downloadItemManifest(itemBuildInfo, hostNum, useAuth, cb)
     {
         var manifest;
         
-        if ((err || res.statusCode !== 200) && !useAuth) {
+        //if ((err || res.statusCode !== 200) && !useAuth) {
+        if (!useAuth && res && res.statusCode === 501) {
             ///TEMP
             console.log("Using auth");
             console.error(body);
             
             downloadItemManifest(itemBuildInfo, hostNum, true, cb);
-        } else if (err || res.statusCode !== 200) {
+        } else if (err || !res || res.statusCode !== 200) {
             console.error(err);
             if (res) {
                 console.error(res.statusCode);
@@ -1061,7 +1060,7 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
         {
             ///TODO: Skip getting manifest if already extracted?
             console.log("Getting item manifest...");
-            getItemManifest(itemBuildInfo, true, function (err, manifest)
+            getItemManifest(itemBuildInfo, false, function (err, manifest)
             {
                 var chunks;
                 
