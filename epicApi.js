@@ -649,7 +649,7 @@ function chunkHashToReverseHexEncoding(chunkHash)
     return outHex;
 }
 
-function buildItemChunkListFromManifest(manifest)
+function buildItemChunkList(itemBuildInfo, manifest)
 {
     // Build chunk URL list
     var chunks = [];
@@ -657,7 +657,8 @@ function buildItemChunkListFromManifest(manifest)
     var hash;
     var group;
     var filename;
-    var chunkBaseURL = "Builds/Rocket/Automated/" + manifest.AppNameString + "/CloudDir/ChunksV3/";
+    var chunkBaseURL = itemBuildInfo.items.CHUNKS.path.substr(0, itemBuildInfo.items.CHUNKS.path.indexOf("/CloudDir")) + "/CloudDir/ChunksV3/";
+    
     for (guid in manifest.ChunkHashList) {
         hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
         ///I Think I can just do manifest.DataGroupList[guid].substr(1);
@@ -1068,7 +1069,7 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
                     console.error(err);
                     return onerror(err);
                 }
-                chunks = buildItemChunkListFromManifest(manifest);
+                chunks = buildItemChunkList(itemBuildInfo, manifest);
                 
                 ///TODO: Skip downloading chunks if already extracted!
                 console.log("Downloading chunks...");
