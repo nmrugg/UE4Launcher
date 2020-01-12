@@ -526,10 +526,10 @@ function downloadItemBuildInfo(catalogItemId, appId, cb)
     });
 }
 
-function getItemManifest(itemBuildInfo, useAuth, cb)
+function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
 {
     var basePath = p.join(cacheDir, "manifests");
-    var path = p.join(basePath, itemBuildInfo.assetId + ".json");
+    var path = p.join(basePath, catalogItemId + "_" + appId + ".json");
     
     fs.readFile(path, "utf8", function onread(err, data)
     {
@@ -548,13 +548,13 @@ function getItemManifest(itemBuildInfo, useAuth, cb)
         if (err || !json) {
             authenticateIfNecessary(null, null, function ()
             {
-                downloadItemManifest(itemBuildInfo, -1, useAuth, function (err, itemBuildInfo)
+                downloadItemManifest(itemBuildInfo, -1, useAuth, function (err, manifest)
                 {
-                    if (!err && itemBuildInfo) {
+                    if (!err && manifest) {
                         mkdirSync(basePath);
-                        fs.writeFileSync(path, JSON.stringify(itemBuildInfo));
+                        fs.writeFileSync(path, JSON.stringify(manifest));
                     }
-                    cb(err, itemBuildInfo);
+                    cb(err, manifest);
                 });
             });
         } else {
@@ -1061,7 +1061,7 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
         {
             ///TODO: Skip getting manifest if already extracted?
             console.log("Getting item manifest...");
-            getItemManifest(itemBuildInfo, false, function (err, manifest)
+            getItemManifest(id, versions[projectVersion].appId, itemBuildInfo, false, function (err, manifest)
             {
                 var chunks;
                 
