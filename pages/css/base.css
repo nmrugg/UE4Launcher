@@ -166,6 +166,7 @@ legend {
     background: #A78529;
     clip-path: polygon(146px 0%, 100% 20px, 100% 100%, 20px 100%, 0% 62px, 0 0);
     position: relative;
+    margin-right: 10px;
 }
 
 .engine-version {
