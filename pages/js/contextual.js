@@ -1,3 +1,6 @@
+/// See https://github.com/LucasReade/Contextual.js
+/// Copyright (c) 2019 Lucas Reade (MIT) https://github.com/LucasReade/Contextual.js/blob/master/LICENSE
+
 class Contextual{
     /**
      * Creates a new contextual menu

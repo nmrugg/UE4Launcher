@@ -1076,6 +1076,12 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
                 downloadChunks(itemBuildInfo, manifest, chunks, function ()
                 {
                     console.log("Downloaded chunks!")
+                    
+                    /// Is there no project associated to the download?
+                    if (!projectBaseDir) {
+                        return ondone();
+                    }
+                    
                     extractChunks(manifest, function ()
                     {
                         ///TODO: Delete chunks

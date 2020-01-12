@@ -225,6 +225,30 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
         }));
     });
     
+    items.push(new ContextualItem({type: "seperator"}));
+    
+    /*
+    items.push(new ContextualItem({
+        label: "Download to Cache",
+        onClick: function ()
+        {
+            addAssetToProject(assetData, {downloadOnly: true}, assetContainerEl, assetImageEl);
+        }
+    }));
+    */
+    items.push(new ContextualItem({type: "custom", markup: "<strong>Download to Cache</strong>"}));
+    
+    configData.engines.forEach(function (engine)
+    {
+        items.push(new ContextualItem({
+            label: engine.version,
+            onClick: function ()
+            {
+                addAssetToProject(assetData, {downloadOnly: true, version: engine.version}, assetContainerEl, assetImageEl);
+            }
+        }));
+    });
+    
     return items;
 }
 
