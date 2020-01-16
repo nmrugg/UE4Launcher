@@ -269,6 +269,7 @@ function login(wantsCookies, cb)
 {
     var contents;
     var needsToRedirect;
+    var redirectTimer;
     
     /// Another url
     /// https://www.unrealengine.com/id/login?redirectUrl=https%3A%2F%2Fwww.unrealengine.com%2Fmarketplace%2Fen-US%2Fstore&client_id=932e595bedb643d9ba56d3e1089a5c4b&noHostRedirect=true
@@ -367,14 +368,22 @@ function login(wantsCookies, cb)
         }
         
     }
+    
+    function redirectOnLogOut()
+    {
+        if (needsToRedirect) {
+            needsToRedirect = false;
+            loginWindow.loadURL("https://www.unrealengine.com/login");
+            console.log("Redirecting to login.");
+        }
+    }
+    
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
     {
         console.log("did-frame-navigate", url)
         
         if (needsToRedirect) {
-            needsToRedirect = false;
-            loginWindow.loadURL("https://www.unrealengine.com/login");
-            console.log("Redirecting to login.");
+            redirectOnLogOut();
         } else if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
             onLogin();
         }
@@ -427,6 +436,8 @@ function login(wantsCookies, cb)
             console.log("Detected logout. Will redirect to log in.");
             /// Redirect to the login page.
             needsToRedirect = true;
+            /// Sometimes it does not redirect.
+            redirectTimer = setTimeout(redirectOnLogOut, 50000);
         }
     });
 }
