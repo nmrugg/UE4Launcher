@@ -90,6 +90,7 @@ function getEngine(version)
 
 function launchEngine(engine, project)
 {
+    var args = [];
     var curTime = Date.now();
     var child;
     
@@ -109,8 +110,13 @@ function launchEngine(engine, project)
         lastProjectLaunched = project;
         lastProjectLaunchedTime = curTime;
         lastEngineLaunched = engine;
+        
+        if (engine.args) {
+            args = args.concat(engine.args);
+        }
+        
         if (project) {
-            args = [project];
+            args = args.concat(project);
         }
         
         console.log("Launching " + engine.execPath + (args ? " " + args.join(" ") : ""));
