@@ -52,7 +52,7 @@ function createProjectList()
         
         function launch()
         {
-            launchEngine(undefined, project.projectPath);
+            launchEngine(getEngine(project.version), project.projectPath);
         }
         
         container.className = "project-container";
@@ -76,19 +76,30 @@ function createProjectList()
     });
 }
 
-function launchEngine(enginePath, project)
+function getEngine(version)
 {
-    var args;
+    var i;
+    var len = configData.engines.length;
+    
+    for (i = 0; i < len; ++i) {
+        if (configData.engines[i].version === version) {
+            return configData.engines[i];
+        }
+    }
+}
+
+function launchEngine(engine, project)
+{
     var curTime = Date.now();
     var child;
     
     //engine = engine || unrealEnginePath
-    if (!enginePath) {
+    if (!engine) {
         if (lastEngineLaunched) {
-            enginePath = lastEngineLaunched;
+            engine = lastEngineLaunched;
         } else if (configData && configData.engines && configData.engines[0]) {
             ///HACK to just use the first engine installed.
-            enginePath = configData.engines[0].execPath;
+            engine = configData.engines[0];
         } else {
             console.error("No engine installed");
         }
@@ -97,14 +108,13 @@ function launchEngine(enginePath, project)
     if (!lastProjectLaunchedTime || curTime - lastProjectLaunchedTime > 5000 || lastProjectLaunched !== project || lastEngineLaunched !== engine) {
         lastProjectLaunched = project;
         lastProjectLaunchedTime = curTime;
-        lastEngineLaunched = enginePath;
-    
+        lastEngineLaunched = engine;
         if (project) {
             args = [project];
         }
         
-        console.log("Launching " + enginePath + (args ? " " + args.join(" ") : ""));
-        child = spawn(enginePath, args, {detached: true, encoding: "utf8"});
+        console.log("Launching " + engine.execPath + (args ? " " + args.join(" ") : ""));
+        child = spawn(engine.execPath, args, {detached: true, encoding: "utf8"});
         
         child.stdout.on("data", function (data)
         {
@@ -361,7 +371,7 @@ function createEngineList()
             launchEl.textContent = "Launch";
             launchEl.onclick = function launch()
             {
-                launchEngine(engineData.execPath);
+                launchEngine(engineData);
             };
             
             engineEl.appendChild(versionEl);
