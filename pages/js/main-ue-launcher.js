@@ -111,12 +111,13 @@ function launchEngine(engine, project)
         lastProjectLaunchedTime = curTime;
         lastEngineLaunched = engine;
         
-        if (engine.args) {
-            args = args.concat(engine.args);
-        }
-        
+        ///NOTE: The project path should be before the other args.
         if (project) {
             args = args.concat(project);
+        }
+        
+        if (engine.args) {
+            args = args.concat(engine.args);
         }
         
         console.log("Launching " + engine.execPath + (args ? " " + args.join(" ") : ""));
