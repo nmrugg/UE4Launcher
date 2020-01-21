@@ -900,28 +900,20 @@ function extractChunks(manifest, ondone, onerror, onprogress)
     (function loop(i)
     {
         var fileList;
-        var fileSize;
         var fileName;
-        var buffer;
-        var bufferOffset;
+        var writeOffset = 0;
+        var outFile;
         
         if (i >= filesCount) {
             return ondone();
         }
         
         fileList = fullFileList[i]; /// Rename to chunkList?
-        fileSize = 0;
         fileName = p.join(extractedBasePath, fileList.Filename);
         
         mkdirs(p.dirname(fileName), extractedBasePath);
         
-        fileList.FileChunkParts.forEach(function (chunkPart)
-        {
-            fileSize += parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
-        });
-        
-        buffer = Buffer.alloc(fileSize);
-        bufferOffset = 0;
+        outFile = fs.openSync(fileName, "w");
         
         // Start reading chunk data and assembling it into a buffer
         fileList.FileChunkParts.forEach(function (chunkPart)
@@ -932,7 +924,8 @@ function extractChunks(manifest, ondone, onerror, onprogress)
             var hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
             var group = String(Number(manifest.DataGroupList[guid]));
             var chunkPath;
-            var file;
+            var chunkFile;
+            var buffer = Buffer.alloc(size);
             
             if (group.length < 2) {
                 group = "0" + group;
@@ -940,16 +933,15 @@ function extractChunks(manifest, ondone, onerror, onprogress)
             
             chunkPath = p.join(chunkBasePath, group, hash + "_" + guid + ".chunk");
             
-            file = fs.openSync(chunkPath, "r");
+            chunkFile = fs.openSync(chunkPath, "r");
             
-            fs.readSync(file, buffer, bufferOffset, size, offset);
-            fs.closeSync(file);
-            bufferOffset += size;
+            fs.readSync(chunkFile, buffer, 0, size, offset);
+            fs.closeSync(chunkFile);
+            
+            fs.writeSync(outFile, buffer, 0, size, writeOffset);
+            
+            writeOffset += size;
         });
-        
-        // Write out the assembled buffer
-        //console.log(fileName)
-        fs.writeFileSync(fileName, buffer);
         
         ///TODO: Delete a chunk when it is no longer necessary.
         ///NOTE: One chunk may be used for many files.
