@@ -913,6 +913,7 @@ function extractChunks(manifest, ondone, onerror, onprogress)
         
         mkdirs(p.dirname(fileName), extractedBasePath);
         
+        ///TODO: Don't use sync functions or run in a worker thread.
         outFile = fs.openSync(fileName, "w");
         
         // Start reading chunk data and assembling it into a buffer
@@ -945,7 +946,8 @@ function extractChunks(manifest, ondone, onerror, onprogress)
         
         ///TODO: Delete a chunk when it is no longer necessary.
         ///NOTE: One chunk may be used for many files.
-        
+       
+        ///TODO: One file might have many, many chunks, so the progress should (at least sometimes) update with each chunk. It would be better to update based on chunks rather than files, somehow.
         onprogress((i + 1) / filesCount);
         
         setImmediate(loop, i + 1);
