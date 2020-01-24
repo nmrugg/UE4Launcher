@@ -41,16 +41,22 @@ function getProjects(engines)
     projectDirs.forEach(function (dir)
     {
         var path = p.join(baseDir, dir);
-        var thumb = p.join(path, "Saved", "AutoScreenshot.png");
-        var projectPath = p.join(path, dir + ".uproject");
-        var proj = {
-            name: dir,
-            dir: path,
-            projectPath: projectPath,
-            thumb: fs.existsSync(thumb) ? thumb : null,
-            version: getProjectVersionFromEnginePath(dir, path, engines),
-        };
-        projects.push(proj);
+        var thumb;
+        var projectPath;
+        var proj;
+        
+        if (fs.statSync(path).isDirectory()) {
+            thumb = p.join(path, "Saved", "AutoScreenshot.png");
+            projectPath = p.join(path, dir + ".uproject");
+            proj = {
+                name: dir,
+                dir: path,
+                projectPath: projectPath,
+                thumb: fs.existsSync(thumb) ? thumb : null,
+                version: getProjectVersionFromEnginePath(dir, path, engines),
+            };
+            projects.push(proj);
+        }
     });
     
     return projects;
