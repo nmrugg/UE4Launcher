@@ -354,6 +354,7 @@ function login(wantsCookies, cb)
         console.log("Logged in");
         isLoggedIn = true;
         loginWindow.hide();
+        ///loginWindow.close(); /// ???
         /// We need to let it load a little longer to set cookies, it seems.
         /*
         setTimeout(function ()
@@ -378,14 +379,59 @@ function login(wantsCookies, cb)
         }
     }
     
+    function getCookies(cb)
+    {
+        electron.session.defaultSession.cookies.get({}).then(function onget(sessionCookies)
+        {
+            cb(null, sessionCookies);
+        }).catch(function onerror(err)
+        {
+            cb(err);
+        });
+    }
+    
+    function hasLoginCookie(sessionCookies)
+    {
+        var i;
+        
+        for (i = sessionCookies.length - 1; i >= 0; --i) {
+            if (sessionCookies[i] && sessionCookies[i].name && sessionCookies[i].name.toUpperCase() === "EPIC_SSO") {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    function checkIfLoggedIn()
+    {
+        getCookies(function onget(err, sessionCookies)
+        {
+            if (!isLoggedIn) {
+                if (err) {
+                    console.error("Error getting cookies");
+                    console.error(err);
+                } else {
+                    //console.log(sessionCookies);
+                    if (hasLoginCookie(sessionCookies)) {
+                        cookies = sessionCookies;
+                        onLogin();
+                    }
+                }
+            }
+        });
+    }
+    
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
     {
         console.log("did-frame-navigate", url)
         
         if (needsToRedirect) {
             redirectOnLogOut();
-        } else if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
-            onLogin();
+        //} else if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
+        //    onLogin();
+        } else if (!isLoggedIn) {
+            checkIfLoggedIn();
         }
         //console.log("did-frame-navigate");
         //console.log(url, code, status, isMainFrame, frameProcessId, frameRoutingId);
@@ -395,23 +441,8 @@ function login(wantsCookies, cb)
     contents.on("did-frame-finish-load", function (e, isMainFrame, frameProcessId, frameRoutingId)
     {
         console.log("did-frame-finish-load");
-        if (isLoggedIn) {
-            //loginWindow.close();
-            ///contents.session ?
-            electron.session.defaultSession.cookies.get({}).then(function onget(sessionCookies)
-            {
-                cookies = sessionCookies;
-                if (wantsCookies) {
-                    cb(null, loginWindow);
-                }
-            }).catch(function onerror(err)
-            {
-                console.error("Error getting cookies");
-                console.error(err);
-                if (wantsCookies) {
-                    cb(err, loginWindow);
-                }
-            });
+        if (!isLoggedIn) {
+            checkIfLoggedIn();
         }
     });
     /*
