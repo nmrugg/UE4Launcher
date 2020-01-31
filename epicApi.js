@@ -976,6 +976,18 @@ function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
     }
 }
 
+function isDir(path, cb)
+{
+    fs.lstat(path, function onstat(err, stats)
+    {
+        if (err) {
+            cb(err);
+        } else {
+            cb(null, stats.isDirectory());
+        }
+    });
+}
+
 function moveToProject(appNameString, projectBaseDir, ondone, onerror)
 {
     var extractedBasePath = p.join(cacheDir, "assets", appNameString, "extracted");
@@ -1009,22 +1021,31 @@ function moveToProject(appNameString, projectBaseDir, ondone, onerror)
                 fullFromPath = p.join(fromDir, files[i]);
                 fullToPath = p.join(toDir, files[i]);
                 
-                ///TODO: Error handling
-                if (fs.lstatSync(fullFromPath).isDirectory()) {
-                    ///TODO: Error handling
-                    //console.log(fullToPath);
-                    mkdirSync(fullToPath);
-                    setImmediate(copyDir, fullFromPath, fullToPath, next);
-                } else {
-                    //console.log("file:", fullToPath);
-                    fs.copyFile(fullFromPath, fullToPath, function oncopy(err)
-                    {
-                        if (err) {
-                            return onerror(err);
-                        }
-                        next();
-                    });
-                }
+                isDir(fullFromPath, function onIsDir(err, isDirectory)
+                {
+                    if (err) {
+                        return onerror(err);
+                    }
+                    if (isDirectory) {
+                        console.log("Creating " + fullToPath);
+                        fs.mkdir(fullToPath, function onMkDir()
+                        {
+                            ///NOTE: The dirs might already exist, so it should ignore most errors.
+                            ///  {errno: -17, code: 'EEXIST'}
+                            copyDir(fullFromPath, fullToPath, next);
+                        });
+                    } else {
+                        console.log("Copying " + fullToPath)
+                        fs.copyFile(fullFromPath, fullToPath, function oncopy(err)
+                        {
+                            if (err) {
+                                //return onerror(err);
+                                console.log(err);
+                            }
+                            next();
+                        });
+                    }
+                });
             }(0));
         });
     }
