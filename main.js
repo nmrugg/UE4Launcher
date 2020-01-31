@@ -364,9 +364,9 @@ function login(wantsCookies, cb)
         }, 5000);
         */
         //app.quit();
-        if (!wantsCookies) {
+        //if (!wantsCookies) {
             cb(null, loginWindow);
-        }
+        //}
         
     }
     
@@ -468,7 +468,7 @@ function login(wantsCookies, cb)
             /// Redirect to the login page.
             needsToRedirect = true;
             /// Sometimes it does not redirect.
-            redirectTimer = setTimeout(redirectOnLogOut, 50000);
+            redirectTimer = setTimeout(redirectOnLogOut, 5000);
         }
     });
 }
