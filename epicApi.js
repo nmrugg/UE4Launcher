@@ -867,7 +867,7 @@ function deleteDir(path)
     }
 }
 
-function mkdirs(dir, relBase)
+function mkdirsSync(dir, relBase)
 {
     var pathToCreate = p.relative(relBase, dir);
     var parts;
@@ -888,6 +888,36 @@ function mkdirs(dir, relBase)
     }
 }
 
+function mkdirs(dir, relBase, cb)
+{
+    var pathToCreate = p.relative(relBase, dir);
+    var parts;
+    var path;
+    var len;
+    var i;    
+    
+    if (pathToCreate) {
+        parts = pathToCreate.split(p.sep);
+        len = parts.length;
+        path = relBase;
+        (function loop(i)
+        {
+            if (i === len) {
+                return cb();
+            }
+            
+            path = p.join(path, parts.shift());
+            
+            fs.mkdir(path, function onmkdir()
+            {
+                setImmediate(loop, i + 1);
+            });
+        }(0));
+    } else {
+        cb();
+    }
+}
+
 function extractChunks(manifest, ondone, onerror, onprogress)
 {
     var chunkBasePath = p.join(cacheDir, "assets", manifest.AppNameString, "chunks");
@@ -895,64 +925,79 @@ function extractChunks(manifest, ondone, onerror, onprogress)
     var fullFileList = manifest.FileManifestList;
     var filesCount = fullFileList.length;
     
-    mkdirSync(extractedBasePath);
-    
-    (function loop(i)
+    fs.mkdir(extractedBasePath, function ()
     {
-        var fileList;
-        var fileName;
-        var writeOffset = 0;
-        var outFile;
-        
-        if (i >= filesCount) {
-            return ondone();
-        }
-        
-        fileList = fullFileList[i]; /// Rename to chunkList?
-        fileName = p.join(extractedBasePath, fileList.Filename);
-        
-        mkdirs(p.dirname(fileName), extractedBasePath);
-        
-        ///TODO: Don't use sync functions or run in a worker thread.
-        outFile = fs.openSync(fileName, "w");
-        
-        // Start reading chunk data and assembling it into a buffer
-        fileList.FileChunkParts.forEach(function (chunkPart)
+        (function loop(i)
         {
-            var guid = chunkPart.Guid;
-            var offset = parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Offset));
-            var size   = parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
-            var hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
-            var group = String(Number(manifest.DataGroupList[guid]));
-            var chunkPath;
-            var chunkFile;
-            var buffer = Buffer.alloc(size);
+            var fileList;
+            var fileName;
+            var writeOffset = 0;
             
-            if (group.length < 2) {
-                group = "0" + group;
+            if (i >= filesCount) {
+                return ondone();
             }
             
-            chunkPath = p.join(chunkBasePath, group, hash + "_" + guid + ".chunk");
+            fileList = fullFileList[i]; /// Rename to chunkList?
+            fileName = p.join(extractedBasePath, fileList.Filename);
             
-            chunkFile = fs.openSync(chunkPath, "r");
-            
-            fs.readSync(chunkFile, buffer, 0, size, offset);
-            fs.closeSync(chunkFile);
-            
-            fs.writeSync(outFile, buffer, 0, size, writeOffset);
-            
-            writeOffset += size;
-        });
-        
-        ///TODO: Delete a chunk when it is no longer necessary.
-        ///NOTE: One chunk may be used for many files.
-       
-        ///TODO: One file might have many, many chunks, so the progress should (at least sometimes) update with each chunk. It would be better to update based on chunks rather than files, somehow.
-        onprogress((i + 1) / filesCount);
-        
-        setImmediate(loop, i + 1);
-        ///TODO: Progress
-    }(0));
+            mkdirs(p.dirname(fileName), extractedBasePath, function extractChunk()
+            {
+                fs.open(fileName, "w", function onopen(err, outFile)
+                {
+                    var chunkPartsLen = fileList.FileChunkParts.length;
+                    
+                    (function loopFileChunkParts(chunkCount)
+                    {
+                        if (chunkCount === chunkPartsLen) {
+                            ++i;
+                            onprogress(i / filesCount);
+                            return fs.close(outFile, function onclose()
+                            {
+                                setImmediate(loop, i);
+                            });
+                        }
+                        
+                        var chunkPart = fileList.FileChunkParts[chunkCount];
+                        var guid = chunkPart.Guid;
+                        var offset = parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Offset));
+                        var size   = parseInt("0x" + chunkHashToReverseHexEncoding(chunkPart.Size));
+                        var hash = chunkHashToReverseHexEncoding(manifest.ChunkHashList[guid]);
+                        var group = String(Number(manifest.DataGroupList[guid]));
+                        var chunkPath;
+                        var chunkFile;
+                        var buffer = Buffer.alloc(size);
+                        
+                        if (group.length < 2) {
+                            group = "0" + group;
+                        }
+                        
+                        chunkPath = p.join(chunkBasePath, group, hash + "_" + guid + ".chunk");
+                        
+                        ///TODO: Error handling
+                        fs.open(chunkPath, "r", function (err, chunkFile)
+                        {
+                            fs.read(chunkFile, buffer, 0, size, offset, function onread()
+                            {
+                                fs.close(chunkFile, function onclose()
+                                {
+                                    fs.write(outFile, buffer, 0, size, writeOffset, function onwrite()
+                                    {
+                                        writeOffset += size;
+                                        setImmediate(loopFileChunkParts, chunkCount + 1);
+                                    });
+                                });
+                            });
+                        });
+                        
+                        ///TODO: Delete a chunk when it is no longer necessary.
+                        ///NOTE: One chunk may be used for many files.
+                        
+                        ///TODO: One file might have many, many chunks, so the progress should (at least sometimes) update with each chunk. It would be better to update based on chunks rather than files, somehow.
+                    }(0));
+                });
+            });
+        }(0));
+    });
 }
 
 
@@ -1039,6 +1084,7 @@ function moveToProject(appNameString, projectBaseDir, ondone, onerror)
                         fs.copyFile(fullFromPath, fullToPath, function oncopy(err)
                         {
                             if (err) {
+                                ///TODO: Error handling
                                 //return onerror(err);
                                 console.log(err);
                             }
