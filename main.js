@@ -5,6 +5,7 @@ var electron = require("electron");
 var p = require("path");
 var os = require("os");
 var fs = require("fs");
+var request = require("./libs/request-helper.js");
 var app = electron.app;
 var BrowserWindow = electron.BrowserWindow;
 var Menu = electron.Menu;
@@ -22,7 +23,6 @@ var configPath = p.join(__dirname, "config.json");
 
 var vaultData;
 var configData;
-
 
 function mkdirSync(dir)
 {
@@ -82,44 +82,17 @@ var mainWindow;
 /// Removes the top menu.
 Menu.setApplicationMenu(null);
 
-/*
-function getJson(url, cb)
-{
-    var downloadWindow = new BrowserWindow({
-        width: 800,
-        height: 800,
-        show: true, /// Use FALSE for graceful loading
-        title: "Unreal Engine Launcher"
-    });
-    var contents = downloadWindow.webContents;
-    
-    downloadWindow.loadURL(url).then(function ()
-    {
-        console.log("LOADED");
-        //console.log(contents.getAllWebContents());
-        contents.savePage("/tmp/electrontest.json", "HTMLOnly").then(function ()
-        {
-            console.log("saved /tmp/electrontest.json");
-        }).catch(function (err)
-        {
-            console.error(err);
-        });
-    });
-}
-*/
-
 
 function getJson(url, options, cb)
 {
-    /// Make options optional.
+    /// Make requireLogin optional.
     if (typeof options === "function") {
         cb = options;
         options = {};
-    } else {
-        options = options || {};
     }
-    
-    options.tmp = true;
+    if (typeof options.login === "undefined") {
+        options.login = true;
+    }
     
     downloadURL(url, options, function ondownload(err, data)
     {
@@ -127,7 +100,7 @@ function getJson(url, options, cb)
             try {
                 data = JSON.parse(data);
             } catch (e) {
-                return cb(true);
+                return cb(e);
             }
         }
         
@@ -135,137 +108,56 @@ function getJson(url, options, cb)
     });
 }
 
-function returnFile(filePath, del, cb)
-{
-    var data;
-    
-    try {
-        data = fs.readFileSync(filePath, "utf8");
-    } catch (e) {
-        console.error(e);
-        ///TODO: Only retry so many times.
-        return setTimeout(returnFile, 50, filePath, del, cb);
-    }
-    
-    cb(false, data);
-    
-    if (del) {
-        try {
-            fs.unlink(filePath, function () {});
-        } catch (e) {}
-    }
-}
-
 
 function downloadURL(url, options, cb)
 {
-    var downloadWindow;
-    var contents;
-    var finished = false;
+    var urlOpts;
     
-    /// Make options optional.
-    if (typeof options === "function") {
+    /// Make requireLogin optional.
+    if (typeof requireLogin === "function") {
         cb = options;
         options = {};
-    } else {
-        options = options || {};
     }
     
-    if (options.login && !isLoggedIn) {
-        return login(false, function (err, window)
+    if (options.login && !cookies) {
+        return getCookies(function ()
         {
-            if (err) {
-                console.error(err);
-            }
-            options.window = window;
             downloadURL(url, options, cb);
         });
     }
     
-    if (options.window) {
-        downloadWindow = options.window;
-    } else {
-        downloadWindow = new BrowserWindow({show: false});
-    }
-    contents = downloadWindow.webContents;
+    urlOpts = options.urlOpts || {
+        url: url,
+    };
     
-    if (options.tmp) {
-        if (!options.path) {
-            /// Create a temporary filename.
-            options.path = p.join(os.tmpdir(), "tmp-ue4-launcher-dl-" + Math.random() + "-" + Math.random());
+    if (options.login) {
+        if (!urlOpts.headers) {
+            urlOpts.headers = {};
         }
+        urlOpts.headers = {
+            Cookie: request._getWebCookieString(),
+        };
     }
     
-    contents.session.on("will-download", function (event, item, webContents)
+    if (typeof urlOpts.timeout === "undefined") {
+        urlOpts.timeout = 30000;
+    }
+    
+    request.get(urlOpts, function(err, res, body)
     {
-        // Set the save path, making Electron not to prompt a save dialog.
-        if (options.path) {
-            item.setSavePath(options.path);
+        ///TODO: Retry
+        if (err || !res) {
+            console.error(err);
+        } else if (res.statusCode >= 300) {
+            err = {code: res.statusCode};
         }
-    
-        item.on("updated", function (event, state)
-        {
-            if (state === "interrupted") {
-                //console.log("Download is interrupted but can be resumed")
-                if (options.onInterrupt) {
-                    options.onInterrupt(item);
-                }
-            } else if (state === "progressing") {
-                if (item.isPaused()) {
-                    //console.log("Download is paused")
-                    if (options.onPause) {
-                        options.onPause(item);
-                    }
-                } else {
-                    //console.log(`Received bytes: ${item.getReceivedBytes()}` + " of " + item.getTotalBytes() + " " + (100 * (item.getReceivedBytes() / item.getTotalBytes())) + "%")
-                    if (options.onProgress) {
-                        options.onProgress(item.getReceivedBytes(), item.getTotalBytes(), item);
-                    }
-                }
-            }
-        })
-        item.once("done", function (event, state)
-        {
-            var success = (state === "completed");
-            var filePath = item.getSavePath();
-            
-            if (finished) {
-                return;
-            }
-            
-            finished = true;
-            
-            if ((options.tmp || options.returnFile) && success) {
-                /// Because this may fail, it tries multiple times.
-                return returnFile(filePath, options.tmp, cb);
-            } else {
-                cb(!success);
-            }
-            
-            if (options.tmp) {
-                try {
-                    fs.unlink(filePath, function () {});
-                } catch (e) {}
-            }
-            /*
-            if (state === "completed") {
-                console.log("Download successfully /tmp/test.json")
-            } else {
-                console.log(`Download failed: ${state}`)
-            }
-            */
-        });
-        
-        if (options.onStart) {
-            options.onStart(item);
-        }
+        cb(err, body);
     });
-    contents.downloadURL(url);
 }
 
 
 
-function login(wantsCookies, cb)
+function login(cb)
 {
     var contents;
     var needsToRedirect;
@@ -415,6 +307,7 @@ function login(wantsCookies, cb)
                     //console.log(sessionCookies);
                     if (hasLoginCookie(sessionCookies)) {
                         cookies = sessionCookies;
+                        request._setCookiesFromBrowser(cookies);
                         onLogin();
                     }
                 }
@@ -458,6 +351,8 @@ function login(wantsCookies, cb)
         console.log(title, explicitSet)
     });
     */
+    /// Quixel login
+    /// https://www.epicgames.com/id/login?client_id=b9101103b8814baa9bb4e79e5eb107d0&response_type=code
     contents.on("page-title-updated", function (e, title, explicitSet)
     {
         console.log("page-title-updated", title, explicitSet)
@@ -476,7 +371,7 @@ function login(wantsCookies, cb)
 function getCookies(cb)
 {
     if (!cookies) {
-        login(true, function (err)
+        login(function (err)
         {
             cb(cookies);
         });
@@ -593,7 +488,7 @@ function downloadVaultData(cb)
         
         url = "https://www.unrealengine.com/marketplace/api/assets/vault?start=" + dlIndex + "&count=" + dlCount;
         
-        getJson(url, {login: true}, function (err, data)
+        getJson(url, function (err, data)
         {
             //debugger;
             console.log(data);
@@ -887,4 +782,4 @@ ipc.on("addAssetToProject", function (e, data)
     });
 });
 
-addAssetToProject = require("./epicApi.js")(configData, getCookies);
+addAssetToProject = require("./libs/epicApi.js")(configData, getCookies);

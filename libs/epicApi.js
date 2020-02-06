@@ -8,87 +8,25 @@
 
 var fs = require("fs");
 var p = require("path");
-var request = require("request");
+var request = require("./request-helper.js");
 var zlib = require("zlib");
 var crypto = require("crypto");
 
-var fakeJar = {};
 var epicOauth;
 var epicSSO;
-var debug = false;
 
 var config;
 var getCookies;
 
-var cacheDir = p.join(__dirname, "cache");
+var cacheDir = p.join(__dirname, "..", "cache");
 
 var hexChars = "0123456789ABCDEF";
-
-request = request.defaults({followRedirect: false, followAllRedirects: false});
-
-/// Debugging
-request._get = request.get;
-request._post = request.post;
-request.get = function (opts, cb)
-{
-    if (debug) {
-        console.log("GET");
-        console.log(opts);
-    }
-    request._get(opts, cb);
-};
-request.post = function (opts, cb)
-{
-    if (debug) {
-        console.log("POST");
-        console.log(opts);
-    }
-    request._post(opts, cb);
-};
-
 
 function mkdirSync(dir)
 {
     try {
         fs.mkdirSync(dir);
     } catch (e) {}
-}
-
-function setCookiesFromBrowser(cookies)
-{
-    cookies.forEach(function (cookie)
-    {
-        fakeJar[cookie.name] = cookie.value;
-    });
-}
-
-function updateFakeJar(cookies)
-{
-    var cookiePair;
-    var i;
-    
-    if (cookies) {
-        for (i = 0; i < cookies.length; ++i) {
-            cookiePair = cookies[i].split(";", 1)[0].split("=");
-            fakeJar[cookiePair[0]] = cookiePair[1];
-            
-            if (cookiePair[1] === "invalid") {
-                delete fakeJar[cookiePair[0]];
-            }
-        }
-    }
-}
-
-function getWebCookieString()
-{
-    var cookieString = "";
-    var key;
-    
-    for (key in fakeJar) {
-        cookieString += key + "=" + fakeJar[key] + "; ";
-    }
-    
-    return cookieString;
 }
 
 var login = (function ()
@@ -109,7 +47,7 @@ var login = (function ()
                 onerror(err);
             } else {
                 onprogress(1, "Got form", totalSteps);
-                updateFakeJar(res.headers["set-cookie"]);
+                request._updateFakeJar(res.headers["set-cookie"]);
                 
                 webLogin(user, pass, ondone, onerror, onprogress);
             }
@@ -130,7 +68,7 @@ var login = (function ()
                 rememberMe: "YES"
             },
             headers: {
-                Cookie: getWebCookieString(),
+                Cookie: request._getWebCookieString(),
                 Origin: "allar_ue4_marketplace_commandline" ,
                 "Accept-Language": "en-US,en;q=0.8",
                 Host: "accounts.unrealengine.com",
@@ -145,7 +83,7 @@ var login = (function ()
             if (!err && res.statusCode === 400) { // login failure
                 onerror("Failed to log in", res);
             } else if (!err && (res.statusCode == 302 || res.statusCode == 200)) { // success
-                updateFakeJar(res.headers["set-cookie"]);
+                request._updateFakeJar(res.headers["set-cookie"]);
                 onprogress(2, "Logged in", totalSteps)
                 webAuthorize(ondone, onerror, onprogress);
             } else {
@@ -160,7 +98,7 @@ var login = (function ()
         var opts = {
             uri: "https://www.epicgames.com/id/api/exchange",
             headers: {
-                Cookie: getWebCookieString(),
+                Cookie: request._getWebCookieString(),
                 Origin: "allar_ue4_marketplace_commandline",
                 //Host: "accounts.unrealengine.com",
             },
@@ -174,7 +112,7 @@ var login = (function ()
             var code;
             
             if (!err && res.statusCode === 200) {
-                updateFakeJar(res.headers["set-cookie"]);
+                request._updateFakeJar(res.headers["set-cookie"]);
                 onprogress(3, "Authorized", totalSteps);
                 //console.log(body)
                 json = JSON.parse(body);
@@ -193,7 +131,7 @@ var login = (function ()
         var opts = {
             uri: "https://www.unrealengine.com/exchange",
             headers: {
-                Cookie: getWebCookieString(),
+                Cookie: request._getWebCookieString(),
                 //"Origin": "allar_ue4_marketplace_commandline",
                 //"Accept-Language": "en-US,en;q=0.8",
                 //host: "accounts.unrealengine.com",
@@ -211,7 +149,7 @@ var login = (function ()
             console.log(res.headers)
             if (!err && res.statusCode == 302) {
                 
-                updateFakeJar(res.headers["set-cookie"]);
+                request._updateFakeJar(res.headers["set-cookie"]);
                 onprogress(4, "Web Exchange successful", totalSteps);
                 oAuthViaPassword(code, ondone, onerror, onprogress);
             } else {
@@ -324,7 +262,7 @@ var login = (function ()
         request.get(opts, function(err, res, body)
         {
             /// Should it do this?
-            //updateFakeJar(res.headers["set-cookie"]);
+            //request._updateFakeJar(res.headers["set-cookie"]);
             
             if (!err && res.statusCode == 302) {
                 if (onprogress) {
@@ -351,7 +289,7 @@ var login = (function ()
         onerror = onerror || function () {};
         onprogress = onprogress || function () {};
         /// TEMP
-        var auth = require("./etc/auth.json");
+        var auth = require("../etc/auth.json");
         getWebLoginForm(auth.u, auth.p, ondone, onerror, onprogress);
     };
     
@@ -371,8 +309,8 @@ function getAssetInfo(catalogItemId, cb)
         if (!err && data) {
             try {
                 ///TODO: Check if in offline mode.
-                /// Cache expires after 12 hours
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 12) {
+                /// Cache expires after 30 days
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 30) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
@@ -472,7 +410,7 @@ function getItemBuildInfo(catalogItemId, appId, cb)
                 
                 /// itemBuildInfo comes with expires data, but we can fall back to checking the last modified time.
                 if (/*(json.expires && (new Date(json.expires)).valueOf() < Date.now()) ||*/
-                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 12) {
+                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24 * 30) {
                     json = undefined;
                 }
             } catch (e) {}
@@ -538,8 +476,8 @@ function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
         if (!err && data) {
             try {
                 ///TODO: Check if in offline mode.
-                /// Cache expires after 12 hours
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 12) {
+                /// Cache expires after 30 days
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 30) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
@@ -602,7 +540,7 @@ function downloadItemManifest(itemBuildInfo, hostNum, useAuth, cb)
     
     if (useAuth) {
         opts.headers.Authorization = "bearer " + epicOauth.access_token;
-        opts.headers.Cookie = getWebCookieString();
+        opts.headers.Cookie = request._getWebCookieString();
     }
     
     request.get(opts, function(err, res, body)
@@ -1006,9 +944,9 @@ function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
     if (epicOauth) {
         setImmediate(ondone);
     } else {
-        getCookies(function (cookies)
+        getCookies(function ()
         {
-            setCookiesFromBrowser(cookies);
+            //request._setCookiesFromBrowser(cookies);
             login(ondone, onerror || function onerror(err, message)
             {
                 console.error(message);
@@ -1185,3 +1123,8 @@ module.exports = function init(_config, _getCookies)
     
     return addAssetToProject;
 };
+
+/// Was this called directly?
+if (require.main === module) {
+    
+}
