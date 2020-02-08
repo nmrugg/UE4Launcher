@@ -177,6 +177,9 @@ function login(cb)
     var contents;
     var needsToRedirect;
     var redirectTimer;
+    var atLeastOnePageLoaded = false;
+    var loginURL = "https://www.unrealengine.com/login";
+    var currentURL = loginURL;
     
     /// Another url
     /// https://www.unrealengine.com/id/login?redirectUrl=https%3A%2F%2Fwww.unrealengine.com%2Fmarketplace%2Fen-US%2Fstore&client_id=932e595bedb643d9ba56d3e1089a5c4b&noHostRedirect=true
@@ -208,7 +211,7 @@ function login(cb)
     
     // and load the index.html of the app.
     //loginWindow.loadFile("index.html")
-    loginWindow.loadURL("https://www.unrealengine.com/login");
+    loginWindow.loadURL(loginURL);
     /*
     loginWindow.removeMenu();
     
@@ -257,24 +260,10 @@ function login(cb)
     */
     function onLogin()
     {
-        //contents.stop();
         console.log("Logged in");
         isLoggedIn = true;
-        loginWindow.hide();
-        ///loginWindow.close(); /// ???
-        /// We need to let it load a little longer to set cookies, it seems.
-        /*
-        setTimeout(function ()
-        {
-            //contents.stop();
-            loginWindow.close();
-        }, 5000);
-        */
-        //app.quit();
-        //if (!wantsCookies) {
-            cb(null, loginWindow);
-        //}
-        
+        loginWindow.close();
+        cb(null, loginWindow);
     }
     
     function redirectOnLogOut()
@@ -312,28 +301,30 @@ function login(cb)
     
     function checkIfLoggedIn()
     {
-        getCookies(function onget(err, sessionCookies)
-        {
-            if (!isLoggedIn) {
-                if (err) {
-                    console.error("Error getting cookies");
-                    console.error(err);
-                } else {
-                    //console.log(sessionCookies);
-                    if (hasLoginCookie(sessionCookies)) {
-                        cookies = sessionCookies;
-                        request._setCookiesFromBrowser(cookies);
-                        onLogin();
+        if (atLeastOnePageLoaded && currentURL.indexOf("id/login") === -1) {
+            getCookies(function onget(err, sessionCookies)
+            {
+                if (!isLoggedIn) {
+                    if (err) {
+                        console.error("Error getting cookies");
+                        console.error(err);
+                    } else {
+                        //console.log(sessionCookies);
+                        if (hasLoginCookie(sessionCookies)) {
+                            cookies = sessionCookies;
+                            request._setCookiesFromBrowser(cookies);
+                            onLogin();
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
     
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
     {
         console.log("did-frame-navigate", url)
-        
+        currentURL = url;
         if (needsToRedirect) {
             redirectOnLogOut();
         //} else if (url === "https://www.unrealengine.com/" || /^https\:\/\/www\.unrealengine\.com\/.*\/feed$/.test(url)) {
@@ -348,6 +339,8 @@ function login(cb)
     });
     contents.on("did-frame-finish-load", function (e, isMainFrame, frameProcessId, frameRoutingId)
     {
+        atLeastOnePageLoaded = true;
+        console.log()
         console.log("did-frame-finish-load");
         if (!isLoggedIn) {
             checkIfLoggedIn();
