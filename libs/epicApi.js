@@ -709,9 +709,6 @@ function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprog
             encoding: null, /// Download the file with binary encoding
         };
         
-        if (debug) {
-            console.log("Downloading " + (i + 1) + " of " + len + " " + opts.url);
-        }
         console.log("Downloading " + (i + 1) + " of " + len + " " + opts.url);
         
         chunk.hostNum++;
@@ -730,9 +727,7 @@ function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprog
                     ///TODO: Stop? Retry?
                     onerror(err);
                 } else {
-                    if (debug) {
-                        console.log("Downloaded " + (i + 1) + " (" + Math.round(((i + 1) / len) * 100) + "%)");
-                    }
+                    /// Downloaded chunk.
                     downloadCount++;
                     onprogress(downloadCount / len);
                     chunk.downloadStatus = downloaded;
@@ -785,6 +780,7 @@ function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprog
     }
 }
 
+/*
 function deleteDir(path)
 {
     var i;
@@ -825,6 +821,7 @@ function mkdirsSync(dir, relBase)
         }
     }
 }
+*/
 
 function mkdirs(dir, relBase, cb)
 {
@@ -1074,18 +1071,19 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
                 console.log("Downloading chunks...");
                 downloadChunks(itemBuildInfo, manifest, chunks, function ()
                 {
-                    console.log("Downloaded chunks!")
-                    
-                    /// Is there no project associated to the download?
-                    if (!projectBaseDir) {
-                        return ondone();
-                    }
+                    console.log("Downloaded chunks!");
                     
                     extractChunks(manifest, function ()
                     {
                         ///TODO: Delete chunks
                         ///      Move files
-                        console.log("Extracted chunks!")
+                        console.log("Extracted chunks!");
+                        
+                        /// Is there no project associated to the download?
+                        if (!projectBaseDir) {
+                            return ondone();
+                        }
+                        
                         onprogress({type: "copying"});
                         moveToProject(manifest.AppNameString, projectBaseDir, ondone, function (err)
                         {
