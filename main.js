@@ -112,6 +112,8 @@ function getJson(url, options, cb)
 function downloadURL(url, options, cb)
 {
     var urlOpts;
+    var retries = 0;
+    var sendRequest;
     
     /// Make requireLogin optional.
     if (typeof requireLogin === "function") {
@@ -143,16 +145,26 @@ function downloadURL(url, options, cb)
         urlOpts.timeout = 30000;
     }
     
-    request.get(urlOpts, function(err, res, body)
+    sendRequest = function ()
     {
-        ///TODO: Retry
-        if (err || !res) {
-            console.error(err);
-        } else if (res.statusCode >= 300) {
-            err = {code: res.statusCode};
-        }
-        cb(err, body);
-    });
+        request.get(urlOpts, function(err, res, body)
+        {
+            ///TODO: Retry
+            if (err || !res) {
+                ++retries;
+                console.error(err);
+                if (retries < 4) {
+                    console.log("Retrying download (" + retries + ")");
+                    return setTimtout(sendRequest, 1000);
+                }
+            } else if (res.statusCode >= 300) {
+                err = {code: res.statusCode};
+            }
+            cb(err, body);
+        });
+    };
+    
+    sendRequest();
 }
 
 
@@ -468,12 +480,39 @@ function createMainWindow()
     });
 }
 
+function isInVault(vault, el)
+{
+    var i;
+    
+    for (i = vault.length - 1; i >= 0; --i) {
+        if (vault[i].catalogItemId === el.catalogItemId) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 function downloadVaultData(cb)
 {
-    var vault = [];
+    var vault;
     var dlCount = 25;
     var dlTotal;
-    var dlIndex = 0;
+    var dlIndex;
+    
+    function done()
+    {
+        console.log("Done downloading vault");
+        cb(vault);
+    }
+    
+    if (vaultData && vaultData.length) {
+        vault = vaultData;
+        dlIndex = vaultData.length;
+    } else {
+        vault = [];
+        dlIndex = 0
+    }
     //debugger;
     (function loop()
     {
@@ -482,14 +521,14 @@ function downloadVaultData(cb)
         console.log(dlIndex);
         //debugger;
         if (dlTotal !== undefined && dlIndex >= dlTotal - 1) {
-            console.log("Done downloading vault");
-            return cb(vault);
+            return done();
         }
         
         url = "https://www.unrealengine.com/marketplace/api/assets/vault?start=" + dlIndex + "&count=" + dlCount;
         
         getJson(url, function (err, data)
         {
+            var addedCount = 0;
             //debugger;
             console.log(data);
             if (err || !data || data.status !== "OK") {
@@ -500,8 +539,24 @@ function downloadVaultData(cb)
                 ///TODO: Try again?
             } else {
                 dlTotal = data.data.paging.total;
-                vault = vault.concat(data.data.elements);
-                dlIndex += dlCount;
+                
+                if (data.data && data.data.elements && data.data.elements.length) {
+                    data.data.elements.forEach(function addIfNew(element)
+                    {
+                        ///NOTE: If you request beyond the total number in the vault, you will get back some of the last elements.
+                        if (!isInVault(vault, element)) {
+                            vault.push(element);
+                            ++addedCount;
+                        }
+                    });
+                    if (addedCount) {
+                        dlIndex += addedCount;
+                    } else {
+                        return done();
+                    }
+                } else {
+                    return done();
+                }
                 loop();
             }
             //console.log(data);
