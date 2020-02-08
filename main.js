@@ -368,6 +368,7 @@ function login(cb)
         ///page-title-updated Logging out... | Epic Games true
         if (typeof title === "string" && title.indexOf("Logging out") > -1) {
             console.log("Detected logout. Will redirect to log in.");
+            atLeastOnePageLoaded = false;
             /// Redirect to the login page.
             needsToRedirect = true;
             /// Sometimes it does not redirect.
