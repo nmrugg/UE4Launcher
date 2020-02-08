@@ -11,6 +11,7 @@ var p = require("path");
 var request = require("./request-helper.js");
 var zlib = require("zlib");
 var crypto = require("crypto");
+var loadJsonFile = require("./loadJsonFile.js");
 
 var epicOauth;
 var epicSSO;
@@ -19,6 +20,9 @@ var config;
 var getCookies;
 
 var cacheDir = p.join(__dirname, "..", "cache");
+var assetJsonPath = p.join(cacheDir, "assets.json");
+
+var assetsData;
 
 var hexChars = "0123456789ABCDEF";
 
@@ -309,8 +313,8 @@ function getAssetInfo(catalogItemId, cb)
         if (!err && data) {
             try {
                 ///TODO: Check if in offline mode.
-                /// Cache expires after 30 days
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 30) {
+                /// Cache expires after 1 day
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
@@ -410,7 +414,7 @@ function getItemBuildInfo(catalogItemId, appId, cb)
                 
                 /// itemBuildInfo comes with expires data, but we can fall back to checking the last modified time.
                 if (/*(json.expires && (new Date(json.expires)).valueOf() < Date.now()) ||*/
-                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24 * 30) {
+                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24) {
                     json = undefined;
                 }
             } catch (e) {}
@@ -476,8 +480,8 @@ function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
         if (!err && data) {
             try {
                 ///TODO: Check if in offline mode.
-                /// Cache expires after 30 days
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 30) {
+                /// Cache expires after 1 day
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
@@ -624,7 +628,7 @@ function isHashCorrect(data, expectedHash)
     return crypto.createHash("sha1").update(data).digest("hex").toUpperCase() === expectedHash;
 }
 
-function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprogress)
+function downloadChunks(id, itemBuildInfo, manifest, chunks, ondone, onerror, onprogress)
 {
     var appId = manifest.AppNameString;
     var concurrent = 4;
@@ -650,7 +654,9 @@ function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprog
             /// Make sure it won't get triggered twice.
             hasFinished = true;
             /// Done!
-            ondone();
+            
+            assetsData[id][appId].downloaded = true;
+            saveAssetsData(ondone);
         }
     }
     
@@ -771,6 +777,12 @@ function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprog
         });
     }
     
+    /// Has it already been downloaded?
+    if (assetsData[id][appId].downloaded) {
+        return setImmediate(ondone);
+    }
+    
+    
     mkdirSync(p.join(cacheDir, "assets"));
     mkdirSync(appBasePath);
     mkdirSync(chunksBasePath);
@@ -780,48 +792,46 @@ function downloadChunks(itemBuildInfo, manifest, chunks, ondone, onerror, onprog
     }
 }
 
-/*
-function deleteDir(path)
+
+function deleteDir(path, cb)
 {
     var i;
     var dirs;
     var curPath;
-    
-    if (fs.existsSync(path)) {
-        dirs = fs.readdirSync(path);
-        for (i = dirs.length - 1; i>= 0; --i) {
-            curPath = p.join(path, dirs[i]);
-            if (fs.lstatSync(curPath).isDirectory()) {
-                deleteDir(curPath);
-            } else {
-                fs.unlinkSync(curPath);
+    fs.readdir(path, function onread(err, paths)
+    {
+        var len = 0;
+        
+        if (paths) {
+            len = paths.length;
+        }
+        
+        (function loop(i)
+        {
+            var curPath;
+            
+            function next()
+            {
+                setImmediate(loop, i + 1);
             }
-        }
-        fs.rmdirSync(path);
-    }
+            
+            if (i === len) {
+                return fs.rmdir(path, cb);
+            }
+            
+            curPath = p.join(path, paths[i]);
+            
+            fs.lstat(curPath, function (err, stats)
+            {
+                if (stats && stats.isDirectory()) {
+                    deleteDir(curPath, next);
+                } else {
+                    fs.unlink(curPath, next);
+                }
+            });
+        }(0));
+    });
 }
-
-function mkdirsSync(dir, relBase)
-{
-    var pathToCreate = p.relative(relBase, dir);
-    var parts;
-    var path;
-    var len;
-    var i;    
-    
-    if (pathToCreate) {
-        parts = pathToCreate.split(p.sep);
-        len = parts.length;
-        path = relBase;
-        for (i = 0; i < len; ++i) {
-            try {
-                path = p.join(path, parts.shift());
-                fs.mkdirSync(path);
-            } catch (e) {}
-        }
-    }
-}
-*/
 
 function mkdirs(dir, relBase, cb)
 {
@@ -853,12 +863,28 @@ function mkdirs(dir, relBase, cb)
     }
 }
 
-function extractChunks(manifest, ondone, onerror, onprogress)
+function extractChunks(id, manifest, ondone, onerror, onprogress)
 {
-    var chunkBasePath = p.join(cacheDir, "assets", manifest.AppNameString, "chunks");
-    var extractedBasePath = p.join(cacheDir, "assets", manifest.AppNameString, "extracted");
+    var appId = manifest.AppNameString;
+    var chunkBasePath = p.join(cacheDir, "assets", appId, "chunks");
+    var extractedBasePath = p.join(cacheDir, "assets", appId, "extracted");
     var fullFileList = manifest.FileManifestList;
     var filesCount = fullFileList.length;
+    
+    function onExtractionComplete()
+    {
+        console.log("Deleting chunks after extraction");
+        ///TODO: Delete chunks as they are not needed (but a chunk can be used more than once).
+        deleteDir(chunkBasePath, function ondel()
+        {
+            assetsData[id][appId].extracted = true;
+            saveAssetsData(ondone);
+        });
+    }
+    
+    if (assetsData[id][appId].extracted) {
+        return setImmediate(ondone);
+    }
     
     fs.mkdir(extractedBasePath, function ()
     {
@@ -869,7 +895,7 @@ function extractChunks(manifest, ondone, onerror, onprogress)
             var writeOffset = 0;
             
             if (i >= filesCount) {
-                return ondone();
+                return onExtractionComplete();
             }
             
             fileList = fullFileList[i]; /// Rename to chunkList?
@@ -1034,61 +1060,102 @@ function moveToProject(appNameString, projectBaseDir, ondone, onerror)
     copyDir(extractedBasePath, projectBaseDir, ondone);
 }
 
+function loadAssetCache(cb)
+{
+    loadJsonFile(assetJsonPath, {}, function onload(json)
+    {
+        assetsData = json;
+        cb();
+    });
+}
+
+function saveAssetsData(cb)
+{
+    fs.writeFile(assetJsonPath, JSON.stringify(assetsData), function onwrite()
+    {
+        cb();
+    });
+}
+
 /// Make sure cacheDir exists.
 mkdirSync(cacheDir);
 
-function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
+function addAssetToProject(assetInfo, projectData, ondone, onerror, onprogress)
 {
-    var id = assetData.catalogItemId;
+    var id = assetInfo.catalogItemId;
     var projectVersion = projectData.version;
     var projectBaseDir = projectData.dir;
     
-    console.log("Getting asset info...");
-    getAssetInfo(id, function (err, assetInfo)
+    loadAssetCache(function ()
     {
-        var versions = getItemVersions(assetInfo);
-        
-        if (!versions[projectVersion]) {
-            return onerror("Version " + projectVersion + " is not avaiable.");
-        }
-        ///TODO: Skip getting build info if already extracted?
-        console.log("Getting build info...");
-        getItemBuildInfo(id, versions[projectVersion].appId, function (err, itemBuildInfo)
+        console.log("Getting asset info...");
+        getAssetInfo(id, function (err, assetInfo)
         {
-            ///TODO: Skip getting manifest if already extracted?
-            console.log("Getting item manifest...");
-            getItemManifest(id, versions[projectVersion].appId, itemBuildInfo, false, function (err, manifest)
+            var versions = getItemVersions(assetInfo);
+            
+            if (!versions[projectVersion]) {
+                return onerror("Version " + projectVersion + " is not avaiable.");
+            }
+            ///TODO: Skip getting build info if already extracted?
+            console.log("Getting build info...");
+            getItemBuildInfo(id, versions[projectVersion].appId, function (err, itemBuildInfo)
             {
-                var chunks;
-                
-                if (err) {
-                    console.error(err);
-                    return onerror(err);
-                }
-                chunks = buildItemChunkList(itemBuildInfo, manifest);
-                
-                ///TODO: Skip downloading chunks if already extracted!
-                console.log("Downloading chunks...");
-                downloadChunks(itemBuildInfo, manifest, chunks, function ()
+                ///TODO: Skip getting manifest if already extracted?
+                console.log("Getting item manifest...");
+                getItemManifest(id, versions[projectVersion].appId, itemBuildInfo, false, function (err, manifest)
                 {
-                    console.log("Downloaded chunks!");
+                    var chunks;
+                    var appId;
                     
-                    extractChunks(manifest, function ()
+                    if (err) {
+                        console.error(err);
+                        return onerror(err);
+                    }
+                    
+                    appId = manifest.AppNameString;
+                    chunks = buildItemChunkList(itemBuildInfo, manifest);
+                    
+                    /// Make sure that the assetsData exists.
+                    if (!assetsData[id]) {
+                        assetsData[id] = {};
+                    }
+                    if (!assetsData[id][appId]) {
+                        assetsData[id][appId] = {};
+                    }
+                    
+                    assetsData[id][appId].engineVersion = projectVersion;
+                    
+                    ///TODO: Skip downloading chunks if already extracted!
+                    console.log("Downloading chunks...");
+                    downloadChunks(id, itemBuildInfo, manifest, chunks, function ()
                     {
-                        ///TODO: Delete chunks
-                        ///      Move files
-                        console.log("Extracted chunks!");
+                        console.log("Downloaded chunks!");
                         
-                        /// Is there no project associated to the download?
-                        if (!projectBaseDir) {
-                            return ondone();
-                        }
-                        
-                        onprogress({type: "copying"});
-                        moveToProject(manifest.AppNameString, projectBaseDir, ondone, function (err)
+                        extractChunks(id, manifest, function ()
+                        {
+                            ///TODO: Delete chunks
+                            ///      Move files
+                            console.log("Extracted chunks!");
+                            
+                            /// Is there no project associated to the download?
+                            if (!projectBaseDir) {
+                                return ondone();
+                            }
+                            
+                            onprogress({type: "copying"});
+                            moveToProject(manifest.AppNameString, projectBaseDir, ondone, function (err)
+                            {
+                                console.error(err);
+                                onerror(err);
+                            });
+                        }, function (err)
                         {
                             console.error(err);
                             onerror(err);
+                        }, function (percent)
+                        {
+                            //console.log(Math.round(percent * 100) + "%");
+                            onprogress({type: "extracting", percent: percent});
                         });
                     }, function (err)
                     {
@@ -1097,16 +1164,8 @@ function addAssetToProject(assetData, projectData, ondone, onerror, onprogress)
                     }, function (percent)
                     {
                         //console.log(Math.round(percent * 100) + "%");
-                        onprogress({type: "extracting", percent: percent});
+                        onprogress({type: "downloading", percent: percent});
                     });
-                }, function (err)
-                {
-                    console.error(err);
-                    onerror(err);
-                }, function (percent)
-                {
-                    //console.log(Math.round(percent * 100) + "%");
-                    onprogress({type: "downloading", percent: percent});
                 });
             });
         });

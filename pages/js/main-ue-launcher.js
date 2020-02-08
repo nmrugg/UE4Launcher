@@ -17,6 +17,7 @@ var lastProjectLaunchedTime;
 var projects;
 var vaultData;
 var configData;
+var assetsData;
 
 var addingAssetsQueue = [];
 
@@ -184,6 +185,7 @@ function prepareForAddingAssets()
         addingAssetsQueue[0].assetContainerEl.classList.remove("installing-asset");
         addingAssetsQueue.pop();
         processQueue();
+        loadAssetsData();
     }
     
     ipc.on("addingAssetDone", function (event, data)
@@ -225,6 +227,23 @@ function prepareForAddingAssets()
     });
 }
 
+function hasDownloaded(assetData, version)
+{
+    var id = assetData.catalogItemId;
+    var keys;
+    var i;
+    
+    if (assetsData[id]) {
+        keys = Object.keys(assetsData[id]);
+        for (i = keys.length - 1; i >= 0; --i) {
+            if (assetsData[id][keys[i]].engineVersion === version && assetsData[id][keys[i]].downloaded) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
 {
     var items = [
@@ -253,12 +272,14 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
         }
     }));
     */
+    
     items.push(new ContextualItem({type: "custom", markup: "<strong>Download to Cache</strong>"}));
     
     configData.engines.forEach(function (engine)
     {
         items.push(new ContextualItem({
-            label: engine.version,
+            /// Add a checkmark to versions that are already downloaded.
+            label: engine.version + (hasDownloaded(assetData, engine.version) ? " \u2714" : ""),
             onClick: function ()
             {
                 addAssetToProject(assetData, {downloadOnly: true, version: engine.version}, assetContainerEl, assetImageEl);
@@ -339,22 +360,50 @@ function asyncPrompt(message, cb)
     );
 }
 
+function manualEngineInstallPrompt()
+{
+    asyncPrompt("Enter Unreal Engine directory path:", function (path)
+    {
+        if (path) {
+            ipc.sendSync("addEngine", path);
+            loadConfig();
+            createEngineList();
+            createProjectList();
+        }
+    });
+}
+
+function installNew()
+{
+    
+}
+
 function implementAddEngineButton()
 {
     var addEngineEl = document.getElementById("addEngine");
     
-    addEngineEl.onclick = function ()
+    function installMenu(e)
     {
-        asyncPrompt("Enter Unreal Engine directory path:", function (path)
-        {
-            if (path) {
-                ipc.sendSync("addEngine", path);
-                loadConfig();
-                createEngineList();
-                createProjectList();
-            }
+        e.preventDefault();
+        new Contextual({
+            isSticky: true,
+            width: '250px',
+            items: [
+                new ContextualItem({
+                    label: "Install New Engine",
+                    onClick: installNew,
+                }),
+                new ContextualItem({
+                    label: "Add Manually Installed",
+                    onClick: manualEngineInstallPrompt,
+                })
+            ]
         });
     };
+    
+    ///TODO: Be able to download and install an engine automatically.
+    ///addEngineEl.onclick = installMenu;
+    addEngineEl.onclick = manualEngineInstallPrompt;
 }
 
 function createEngineList()
@@ -393,6 +442,11 @@ function loadConfig()
     configData = parseJson(ipc.sendSync("getConfig"));
 }
 
+function loadAssetsData()
+{
+    assetsData = parseJson(ipc.sendSync("getAssetsData"));
+}
+
 function registerShortcuts()
 {
     window.addEventListener("keyup", function (e)
@@ -404,6 +458,8 @@ function registerShortcuts()
 }
 
 loadConfig();
+
+loadAssetsData();
 
 createEngineList();
 

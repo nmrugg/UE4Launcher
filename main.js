@@ -6,6 +6,7 @@ var p = require("path");
 var os = require("os");
 var fs = require("fs");
 var request = require("./libs/request-helper.js");
+var loadJsonFile = require("./libs/loadJsonFile.js");
 var app = electron.app;
 var BrowserWindow = electron.BrowserWindow;
 var Menu = electron.Menu;
@@ -20,9 +21,11 @@ var addAssetToProject;
 var cacheDir = p.join(__dirname, "cache");
 var vaultPath = p.join(cacheDir, "vault.json");
 var configPath = p.join(__dirname, "config.json");
+var assetJsonPath = p.join(cacheDir, "assets.json");
 
 var vaultData;
 var configData;
+var assetsData;
 
 function mkdirSync(dir)
 {
@@ -33,7 +36,7 @@ function mkdirSync(dir)
 
 function loadConfig()
 {
-    configData = loadJsonFile(configPath, {});
+    configData = loadJsonFile.sync(configPath, {});
     
     if (!configData.engines) {
         configData.engines = [];
@@ -437,6 +440,9 @@ function createMainWindow()
     
     if (configData.devTools) {
         mainWindow.webContents.openDevTools()
+    } else {
+        /// Make it show up in the json file for easy editing.
+        configData.devTools = false;
     }
     
     if (configData.isMaximized) {
@@ -565,23 +571,10 @@ function downloadVaultData(cb)
     }());
 }
 
-function loadJsonFile(path, defaultVal)
-{
-    var json;
-    
-    try {
-        json = JSON.parse(fs.readFileSync(path, "utf8"));
-    } catch (e) {
-        json = defaultVal;
-    }
-    
-    return json;
-}
-
 function getVault()
 {
     if (typeof vaultData === "undefined") {
-        vaultData = loadJsonFile(vaultPath, []);
+        vaultData = loadJsonFile.sync(vaultPath, []);
     }
     
     return vaultData;
@@ -628,38 +621,10 @@ function updateVault(ignoreCache, cb)
 
 function startup()
 {
-    createMainWindow();
-    
-    //updateVault();
-    /*
-    login(function ()
+    loadAssetCache(function ()
     {
         createMainWindow();
     });
-    */
-    //getJson("file:///storage/UE4Launcher/package.json");
-    //downloadURL("file:///storage/UE4Launcher/package.json");
-    //downloadURL("https://cdn1.epicgames.com/ue/product/Screenshot/AssetDemo-1920x1080-e2a5e4c8b0dad08bcb8d8df7495d9ab4.jpg");
-    //createMainWindow();
-    /*
-    getJson("file:///storage/UE4Launcher/package.json", function (err, data)
-    {
-        console.log(err);
-        console.log(data);
-    });
-    */
-    /*
-    login(function (err, loginWindow)
-    {
-        getJson("https://www.unrealengine.com/marketplace/api/assets/vault?start=0&count=25", {window: loginWindow}, function (err, data)
-        {
-            console.error(err);
-            console.log(data);
-        });
-    });
-    */
-    /// Not logged in error.
-    // {"status":"Error","errorCode":"errors.com.epicgames.common.authentication.authentication_failed","args":null}
 }
 
 // This method will be called when Electron has finished
@@ -765,6 +730,16 @@ function addEngine(path)
     }
 }
 
+function loadAssetCache(cb)
+{
+    loadJsonFile(assetJsonPath, {}, function onload(json)
+    {
+        assetsData = json;
+        cb();
+    });
+}
+
+
 ipc.on("getVault", function (e/*, arg*/)
 {
     console.log("getting vault");
@@ -792,6 +767,11 @@ ipc.on("saveConfig", function (e, arg)
     e.returnValue = JSON.stringify(getVault());
 });
 */
+
+ipc.on("getAssetsData", function (e, arg)
+{
+    e.returnValue = JSON.stringify(assetsData);
+});
 
 ipc.on("addEngine", function (e, path)
 {
@@ -821,7 +801,10 @@ ipc.on("addAssetToProject", function (e, data)
     addAssetToProject(data.assetData, data.projectData, function ondone()
     {
         console.log("Done with", resId);
-        e.reply("addingAssetDone", JSON.stringify(resId));
+        loadAssetCache(function ()
+        {
+            e.reply("addingAssetDone", JSON.stringify(resId));
+        });
     }, function onerror(err)
     {
         e.reply("addingAssetErr", JSON.stringify({id: resId, err: err}));
