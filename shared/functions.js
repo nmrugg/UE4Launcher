@@ -2,6 +2,13 @@
 
 var fs = require("fs");
 var p = require("path");
+var os = require("os");
+
+var projectDirPaths = [
+    p.join(os.homedir(), "Unreal Projects"),
+    p.join(os.homedir(), "Documents", "Unreal Projects"),
+];
+
 
 function getProjectVersionFromEnginePath(name, projectPath, engines)
 {
@@ -34,29 +41,37 @@ function getProjectVersionFromEnginePath(name, projectPath, engines)
 
 function getProjects(engines)
 {
-    var baseDir = p.join(os.homedir(), "Documents", "Unreal Projects");
-    var projectDirs = fs.readdirSync(baseDir);
+    var projectDirs;
     var projects = [];
     
-    projectDirs.forEach(function (dir)
+    projectDirPaths.forEach(function (baseDir)
     {
-        var path = p.join(baseDir, dir);
-        var thumb;
-        var projectPath;
-        var proj;
-        
-        if (fs.statSync(path).isDirectory()) {
-            thumb = p.join(path, "Saved", "AutoScreenshot.png");
-            projectPath = p.join(path, dir + ".uproject");
-            proj = {
-                name: dir,
-                dir: path,
-                projectPath: projectPath,
-                thumb: fs.existsSync(thumb) ? thumb : null,
-                version: getProjectVersionFromEnginePath(dir, path, engines),
-            };
-            projects.push(proj);
+        try {
+            projectDirs = fs.readdirSync(baseDir);
+        } catch (e) {
+            projectDirs = [];
         }
+        
+        projectDirs.forEach(function (dir)
+        {
+            var path = p.join(baseDir, dir);
+            var thumb;
+            var projectPath;
+            var proj;
+            
+            if (fs.statSync(path).isDirectory()) {
+                thumb = p.join(path, "Saved", "AutoScreenshot.png");
+                projectPath = p.join(path, dir + ".uproject");
+                proj = {
+                    name: dir,
+                    dir: path,
+                    projectPath: projectPath,
+                    thumb: fs.existsSync(thumb) ? thumb : null,
+                    version: getProjectVersionFromEnginePath(dir, path, engines),
+                };
+                projects.push(proj);
+            }
+        });
     });
     
     return projects;

@@ -1,7 +1,6 @@
 "use strict";
 
 var fs = require("fs");
-var os = require("os");
 var p = require("path");
 var spawn = require("child_process").spawn;
 var SHARED = require(p.join(__dirname, "..", "shared", "functions"));

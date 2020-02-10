@@ -3,7 +3,6 @@
 // Modules to control application life and create native browser window
 var electron = require("electron");
 var p = require("path");
-var os = require("os");
 var fs = require("fs");
 var request = require("./libs/request-helper.js");
 var loadJsonFile = require("./libs/loadJsonFile.js");
