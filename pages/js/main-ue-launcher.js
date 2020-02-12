@@ -289,6 +289,11 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
     return items;
 }
 
+function updateVault(ignoreCache)
+{
+    ipc.send("updateVault", ignoreCache ? "1" : "0");
+}
+
 function createVaultList()
 {
     function createVaultEls()
@@ -343,7 +348,7 @@ function createVaultList()
     
     createVaultEls();
     
-    ipc.send("updateVault");
+    updateVault();
 }
 
 function asyncPrompt(message, cb)
@@ -403,6 +408,42 @@ function implementAddEngineButton()
     ///TODO: Be able to download and install an engine automatically.
     ///addEngineEl.onclick = installMenu;
     addEngineEl.onclick = manualEngineInstallPrompt;
+}
+
+function implementRefreshVaultButton()
+{
+    var refreshButton = document.getElementById("vaultRefresh");
+    
+    refreshButton.onclick = function ()
+    {
+        updateVault(true);
+    }
+    /*
+    var addEngineEl = document.getElementById("addEngine");
+    
+    function installMenu(e)
+    {
+        e.preventDefault();
+        new Contextual({
+            isSticky: true,
+            width: '250px',
+            items: [
+                new ContextualItem({
+                    label: "Install New Engine",
+                    onClick: installNew,
+                }),
+                new ContextualItem({
+                    label: "Add Manually Installed",
+                    onClick: manualEngineInstallPrompt,
+                })
+            ]
+        });
+    };
+    
+    ///TODO: Be able to download and install an engine automatically.
+    ///addEngineEl.onclick = installMenu;
+    addEngineEl.onclick = manualEngineInstallPrompt;
+    */
 }
 
 function createEngineList()
@@ -471,3 +512,5 @@ implementAddEngineButton();
 prepareForAddingAssets();
 
 registerShortcuts();
+
+implementRefreshVaultButton();

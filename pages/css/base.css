@@ -266,3 +266,12 @@ legend {
 .not-implemented {
     cursor: not-allowed;
 }
+
+.iconButton {
+    cursor: pointer;
+    opacity: 0.5;
+    transition: 200ms opacity;
+}
+.iconButton:hover {
+    opacity: 0.9;
+}

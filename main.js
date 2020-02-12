@@ -360,6 +360,7 @@ function login(cb)
     */
     /// Quixel login
     /// https://www.epicgames.com/id/login?client_id=b9101103b8814baa9bb4e79e5eb107d0&response_type=code
+    /// Ends here https://quixel.com/?code=812d81d1f1ad4f699091b03f0b1083d7
     contents.on("page-title-updated", function (e, title, explicitSet)
     {
         console.log("page-title-updated", title, explicitSet)
@@ -744,7 +745,7 @@ ipc.on("updateVault", function (e, ignoreCache)
 {
     console.log("updating vault");
     
-    updateVault(ignoreCache, function (data)
+    updateVault(ignoreCache === "1", function (data)
     {
         e.reply("updateVault", data ? JSON.stringify(data) : "");
     });
