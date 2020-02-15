@@ -7,7 +7,6 @@ var SHARED = require(p.join(__dirname, "..", "shared", "functions.js"));
 var events = require(p.join(__dirname, "..", "shared", "events.js"));
 var electron = require("electron");
 var ipc = electron.ipcRenderer;
-var getProjects = SHARED.getProjects;
 
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
 var lastEngineLaunched;
@@ -40,7 +39,9 @@ function createProjectList()
     var projectsAreaEl = document.getElementById("projects");
     var defaultThumb = "imgs/default_game_thumbnail.png";
     
-    projects = getProjects(configData.engines);
+    projects = SHARED.getProjects(configData.engines);
+    
+    SHARED.sortProjects(projects);
     
     projectsAreaEl.innerHTML = "";
     

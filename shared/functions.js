@@ -77,6 +77,26 @@ function getProjects(engines)
     return projects;
 }
 
+function sortProjects(projects, type, desc)
+{
+    if (!type || type === "caseInsensitive") {
+        projects.sort(function (a, b)
+        {
+            return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        });
+    } else if (type === "caseSensitive") {
+        projects.sort(function (a, b)
+        {
+            return a.name.localeCompare(b.name);
+        });
+    }
+    
+    if (desc) {
+        projects.reverse();
+    }
+}
+
 module.exports = {
-    getProjects: getProjects
+    getProjects: getProjects,
+    sortProjects: sortProjects,
 };
