@@ -314,8 +314,8 @@ function getAssetInfo(catalogItemId, cb)
         if (!err && data) {
             try {
                 ///TODO: Check if in offline mode.
-                /// Cache expires after 1 day
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 365) {
+                /// Cache expires after 1 week
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 7) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
@@ -415,7 +415,7 @@ function getItemBuildInfo(catalogItemId, appId, cb)
                 
                 /// itemBuildInfo comes with expires data, but we can fall back to checking the last modified time.
                 if (/*(json.expires && (new Date(json.expires)).valueOf() < Date.now()) ||*/
-                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24 * 365) {
+                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24 * 7) {
                     json = undefined;
                 }
             } catch (e) {}
@@ -481,8 +481,8 @@ function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
         if (!err && data) {
             try {
                 ///TODO: Check if in offline mode.
-                /// Cache expires after 1 day
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 365) {
+                /// Cache expires after 1 week
+                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 7) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
