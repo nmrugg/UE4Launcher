@@ -17,7 +17,8 @@ var epicOauth;
 var epicSSO;
 
 var config;
-var getCookies;
+var loginIfNecessary;
+var logout;
 
 var cacheDir = p.join(__dirname, "..", "cache");
 var assetJsonPath = p.join(cacheDir, "assets.json");
@@ -967,7 +968,7 @@ function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
     if (epicOauth) {
         setImmediate(ondone);
     } else {
-        getCookies(function ()
+        loginIfNecessary(function ()
         {
             //request._setCookiesFromBrowser(cookies);
             login(ondone, onerror || function onerror(err, message)
@@ -1173,10 +1174,11 @@ function addAssetToProject(assetInfo, projectData, ondone, onerror, onprogress)
 }
 
 
-module.exports = function init(_config, _getCookies)
+module.exports = function init(_config, _loginIfNecessary, _logout)
 {
     config = _config;
-    getCookies = _getCookies;
+    loginIfNecessary = _loginIfNecessary;
+    logout = _logout;
     
     return addAssetToProject;
 };

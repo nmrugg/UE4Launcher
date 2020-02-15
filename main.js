@@ -124,9 +124,13 @@ function downloadURL(url, options, cb)
     }
     
     if (options.login && !cookies) {
-        return getCookies(function ()
+        return loginIfNecessary(function (err)
         {
-            downloadURL(url, options, cb);
+            if (err) {
+                cb(err);
+            } else {
+                downloadURL(url, options, cb);
+            }
         });
     }
     
@@ -192,7 +196,6 @@ function login(cb)
     
     isLoggedIn = false;
     
-    
     // Create the browser window.
     loginWindow = new BrowserWindow({
         width: 800,
@@ -236,6 +239,15 @@ function login(cb)
     });
     */
     
+    loginWindow.on("closed", function ()
+    {
+        if (!isLoggedIn && cb) {
+            console.error("Login window closed unexpectedly");
+            setImmediate(cb, new Error("Login window closed unexpectedly"));
+            cb = null;
+        }
+    });
+    
     /// Set the show to FALSE to use.
     /**
     loginWindow.once("ready-to-show", function ()
@@ -262,7 +274,11 @@ function login(cb)
         console.log("Logged in");
         isLoggedIn = true;
         loginWindow.close();
-        cb(null, loginWindow);
+        //cb(null, loginWindow);
+        if (cb) {
+            setImmediate(cb, null);
+            cb = null;
+        }
     }
     
     function redirectOnLogOut()
@@ -274,7 +290,7 @@ function login(cb)
         }
     }
     
-    function getCookies(cb)
+    function getCookiesFromSession(cb)
     {
         electron.session.defaultSession.cookies.get({}).then(function onget(sessionCookies)
         {
@@ -301,7 +317,7 @@ function login(cb)
     function checkIfLoggedIn()
     {
         if (atLeastOnePageLoaded && currentURL.indexOf("id/login") === -1) {
-            getCookies(function onget(err, sessionCookies)
+            getCookiesFromSession(function onget(err, sessionCookies)
             {
                 if (!isLoggedIn) {
                     if (err) {
@@ -319,6 +335,7 @@ function login(cb)
             });
         }
     }
+    
     
     contents.on("did-frame-navigate", function (e, url, code, status, isMainFrame, frameProcessId, frameRoutingId)
     {
@@ -377,16 +394,23 @@ function login(cb)
     });
 }
 
-function getCookies(cb)
+function loginIfNecessary(cb)
 {
     if (!cookies) {
         login(function (err)
         {
-            cb(cookies);
+            cb(err);
         });
     } else {
         setImmediate(cb, cookies);
     }
+}
+
+function logout(cb)
+{
+    ///TODO: Make a way to logout so that if a login expires (like because a computer was put into standby), we can log back in again.
+    console.error("NOT IMPLEMENTED");
+    setImmediate(cb, new Error("NOT IMPLEMENTED"));
 }
 
 function sanitizeConfigWindowData()
@@ -532,11 +556,17 @@ function downloadVaultData(cb)
             //debugger;
             console.log(data);
             if (err || !data || data.status !== "OK") {
-                console.error("Cannot download vault page: " + url)
-                if (data) {
-                    console.error(data);
+                /// Did the user not cancle the update?
+                if (!err || err.message !== "Login window closed unexpectedly") {
+                    console.error("Cannot download vault page: " + url)
+                    console.error(err);
+                    if (data) {
+                        console.log("DATA:");
+                        console.error(data);
+                    }
+                    ///TODO: Try again?
                 }
-                ///TODO: Try again?
+                cb(vault);
             } else {
                 dlTotal = data.data.paging.total;
                 
@@ -808,4 +838,4 @@ ipc.on("addAssetToProject", function (e, data)
     });
 });
 
-addAssetToProject = require("./libs/epicApi.js")(configData, getCookies);
+addAssetToProject = require("./libs/epicApi.js")(configData, loginIfNecessary, logout);
