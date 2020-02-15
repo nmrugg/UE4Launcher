@@ -31,6 +31,9 @@ Downloading Assets
 Asset Installed in UE4
 ![Alt Asset Installed](docs/images/4-in-ue4.jpg)
 
+Learn Tab
+![Learn Tab](docs/images/5-learn-tab.jpg)
+
 <h2>Installation</h2>
 
 First, install <a href=https://nodejs.org/en/download/>node.js</a>.
