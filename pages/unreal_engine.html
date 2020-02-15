@@ -16,27 +16,19 @@
         <div class="nav-item not-implemented" title="Not implemented"><a href=# class=not-implemented>Friends</a></div>
         <div class="nav-item selected"><a href=#>Unreal Engine</a></div>
     </nav>
-    <main>
-        <header>
+    <main id=main>
+        <header id=topMenu>
             <a href=# class="tab not-implemented" title="Not implemented">Unreal Engine</a>
-            <a href=# class="tab not-implemented" title="Not implemented">Learn</a>
+            <a href=# class="tab selectable" id=learnTab>Learn</a>
             <a href=# class="tab not-implemented" title="Not implemented">Marketplace</a>
-            <a href=# class="tab selected">Library</a>
+            <a href=# class="tab selectable selected" id=libraryTab>Library</a>
         </header>
-        <div class=content>
+        <div class=content id=libraryPane>
             
             <fieldset>
                 <legend>Engine Versions <a id="addEngine" href=#>&#x2795;</a></legend>
                 <div class=content-area id=engines>
                 </div>
-                <!--
-                <div class=content-area>
-                    <div class=ue4-engine>
-                        <span class=engine-version>4.23.0</span>
-                        <a href=# class=engine-launch id=temp423Launch>Launch</a>
-                    </div>
-                </div>
-                -->
             </fieldset>
             
             <fieldset>
@@ -51,9 +43,11 @@
                 </div>
             </fieldset>
         </div>
+        <div class="content hiddenPane" id=urlPane></div>
     </main>
     </body>
     <script src=js/prompt.js></script>
     <script src=js/contextual.js></script>
     <script src=js/main-ue-launcher.js></script>
+    <script src=js/topMenu.js></script>
 </html>

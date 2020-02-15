@@ -51,7 +51,7 @@ main {
     flex-flow: column;
     display: flex;
     height: 100%;
-
+    margin-right: 12px;
 }
 
 header {
@@ -94,12 +94,23 @@ nav header {
     padding: 18px 20px;
     color: gray;
     border-bottom: 3px solid transparent;
+    transition: 200ms color, 200ms border-bottom-color, 200ms background-color;
 }
 
-.tab.selected, .tab.selected a {
+
+.tab.selectable:hover {
+    color: #b3b3b3;
+    border-bottom-color: #5D4C1D; /*rgba(167, 133, 41, 0.5);*/
+}
+
+.tab.selectable.selected, .tab.selectable.selected a {
     color: #eee;
     background-color: #272727;
     border-bottom-color: #A78529;
+}
+
+.hiddenPane {
+    display: none;
 }
 
 @font-face {
@@ -283,4 +294,42 @@ legend {
 @keyframes spin {
     from {transform:rotate(0deg);}
     to {transform:rotate(360deg);}
+}
+
+iframe {
+    padding: 0;
+    margin: 0;
+    border: 0;
+}
+
+/* Used by the Learn tab */
+.noScroll {
+    overflow: hidden;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px
+}
+::-webkit-scrollbar-track {
+    background: #3b3b3b;
+    border-radius: 50px
+}
+::-webkit-scrollbar-thumb {
+    background: #a9a9a9;
+    border-radius: 50px
+}
+::-webkit-scrollbar-thumb:horizontal:hover,::-webkit-scrollbar-thumb:vertical:hover {
+    background: #fff
+}
+::-webkit-scrollbar-track:hover {
+    background: #545454
+}
+::-webkit-scrollbar-button {
+    width: 8px;
+    height: 13px;
+    display: block
+}
+::-webkit-scrollbar-corner {
+    background-color: transparent
 }
