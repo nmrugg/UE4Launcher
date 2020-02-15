@@ -3,7 +3,8 @@
 var fs = require("fs");
 var p = require("path");
 var spawn = require("child_process").spawn;
-var SHARED = require(p.join(__dirname, "..", "shared", "functions"));
+var SHARED = require(p.join(__dirname, "..", "shared", "functions.js"));
+var events = require(p.join(__dirname, "..", "shared", "events.js"));
 var electron = require("electron");
 var ipc = electron.ipcRenderer;
 var getProjects = SHARED.getProjects;
@@ -291,6 +292,7 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
 
 function updateVault(ignoreCache)
 {
+    events.emit("updatingVault");
     ipc.send("updateVault", ignoreCache ? "1" : "0");
 }
 
@@ -337,6 +339,7 @@ function createVaultList()
     
     ipc.on("updateVault", function (event, data)
     {
+        events.emit("doneUpdatingVault");
         if (data) {
             console.log("Updating vault data.");
             vaultData = JSON.parse(data);
@@ -418,32 +421,16 @@ function implementRefreshVaultButton()
     {
         updateVault(true);
     }
-    /*
-    var addEngineEl = document.getElementById("addEngine");
     
-    function installMenu(e)
+    events.on("updatingVault", function ()
     {
-        e.preventDefault();
-        new Contextual({
-            isSticky: true,
-            width: '250px',
-            items: [
-                new ContextualItem({
-                    label: "Install New Engine",
-                    onClick: installNew,
-                }),
-                new ContextualItem({
-                    label: "Add Manually Installed",
-                    onClick: manualEngineInstallPrompt,
-                })
-            ]
-        });
-    };
+        refreshButton.classList.add("spin");
+    });
     
-    ///TODO: Be able to download and install an engine automatically.
-    ///addEngineEl.onclick = installMenu;
-    addEngineEl.onclick = manualEngineInstallPrompt;
-    */
+    events.on("doneUpdatingVault", function ()
+    {
+        refreshButton.classList.remove("spin");
+    });
 }
 
 function createEngineList()
@@ -497,6 +484,8 @@ function registerShortcuts()
     }, true);
 }
 
+implementRefreshVaultButton();
+
 loadConfig();
 
 loadAssetsData();
@@ -513,4 +502,3 @@ prepareForAddingAssets();
 
 registerShortcuts();
 
-implementRefreshVaultButton();

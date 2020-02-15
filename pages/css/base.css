@@ -271,7 +271,16 @@ legend {
     cursor: pointer;
     opacity: 0.5;
     transition: 200ms opacity;
+    display: inline-block;
 }
 .iconButton:hover {
     opacity: 0.9;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from {transform:rotate(0deg);}
+    to {transform:rotate(360deg);}
 }
