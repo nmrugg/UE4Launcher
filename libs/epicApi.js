@@ -322,7 +322,7 @@ function getAssetInfo(catalogItemId, cb)
         }
         
         if (err || !json) {
-            authenticateIfNecessary(null, null, function ()
+            authenticateIfNecessary(function ondone()
             {
                 downloadAssetInfo(catalogItemId, function (err, assetInfo)
                 {
@@ -332,6 +332,14 @@ function getAssetInfo(catalogItemId, cb)
                     }
                     cb(err, assetInfo);
                 });
+            }, function onerr(err)
+            {
+                try {
+                    json = JSON.parse(data);
+                    cb(null, json, true);
+                } catch (e) {
+                    cb(err);
+                }
             });
         } else {
             ///TEMP
@@ -399,7 +407,7 @@ function getItemVersions(itemInfo)
     return versions;
 }
 
-function getItemBuildInfo(catalogItemId, appId, cb)
+function getItemBuildInfo(catalogItemId, appId, skipCache, cb)
 {
     var basePath = p.join(cacheDir, "buildInfo");
     var path = p.join(basePath, catalogItemId + "_" + appId + ".json");
@@ -410,19 +418,16 @@ function getItemBuildInfo(catalogItemId, appId, cb)
         
         if (!err && data) {
             try {
-                ///TODO: Check if in offline mode.
-                json = JSON.parse(data);
-                
                 /// itemBuildInfo comes with expires data, but we can fall back to checking the last modified time.
-                if (/*(json.expires && (new Date(json.expires)).valueOf() < Date.now()) ||*/
-                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24 * 7) {
-                    json = undefined;
+                if (skipCache || /*(json.expires && (new Date(json.expires)).valueOf() < Date.now()) ||*/
+                    Date.now() - fs.statSync(path).mtime.valueOf() > 1000 * 60 * 60 * 24 * 7) {0
+                    json = JSON.parse(data);
                 }
             } catch (e) {}
         }
         
         if (err || !json) {
-            authenticateIfNecessary(null, null, function ()
+            authenticateIfNecessary(function ()
             {
                 downloadItemBuildInfo(catalogItemId, appId, function (err, itemBuildInfo)
                 {
@@ -430,13 +435,21 @@ function getItemBuildInfo(catalogItemId, appId, cb)
                         mkdirSync(basePath);
                         fs.writeFileSync(path, JSON.stringify(itemBuildInfo));
                     }
-                    cb(err, itemBuildInfo);
+                    cb(err, itemBuildInfo, skipCache);
                 });
+            }, function onerr(err)
+            {
+                try {
+                    json = JSON.parse(data);
+                    cb(null, json, true);
+                } catch (e) {
+                    cb(err);
+                }
             });
         } else {
             ///TEMP
             console.log("Using cached itemBuildInfo");
-            cb(null, json);
+            cb(null, json, skipCache);
         }
     });
 }
@@ -469,7 +482,7 @@ function downloadItemBuildInfo(catalogItemId, appId, cb)
     });
 }
 
-function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
+function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, skipCache, cb)
 {
     var basePath = p.join(cacheDir, "manifests");
     var path = p.join(basePath, catalogItemId + "_" + appId + ".json");
@@ -482,14 +495,14 @@ function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
             try {
                 ///TODO: Check if in offline mode.
                 /// Cache expires after 1 week
-                if (Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 7) {
+                if (skipCache || Date.now() - fs.statSync(path).mtime.valueOf() < 1000 * 60 * 60 * 24 * 7) {
                     json = JSON.parse(data);
                 }
             } catch (e) {}
         }
         
         if (err || !json) {
-            authenticateIfNecessary(null, null, function ()
+            authenticateIfNecessary(function ()
             {
                 downloadItemManifest(itemBuildInfo, -1, useAuth, function (err, manifest)
                 {
@@ -497,13 +510,21 @@ function getItemManifest(catalogItemId, appId, itemBuildInfo, useAuth, cb)
                         mkdirSync(basePath);
                         fs.writeFileSync(path, JSON.stringify(manifest));
                     }
-                    cb(err, manifest);
+                    cb(err, manifest, skipCache);
                 });
+            }, function onerr(err)
+            {
+                try {
+                    json = JSON.parse(data);
+                    cb(null, json, true);
+                } catch (e) {
+                    cb(err);
+                }
             });
         } else {
             ///TEMP
             console.log("Using cached manifest");
-            cb(null, json);
+            cb(null, json, skipCache);
         }
     });
 }
@@ -963,7 +984,7 @@ function extractChunks(id, manifest, ondone, onerror, onprogress)
 }
 
 
-function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
+function authenticateIfNecessary(ondone, onerror, onprogress)
 {
     if (epicOauth) {
         setImmediate(ondone);
@@ -975,6 +996,7 @@ function authenticateIfNecessary(user, pass, ondone, onerror, onprogress)
             {
                 console.error(message);
                 console.error(err);
+                onerror(err);
             }, onprogress || function progress(amount, message, total)
             {
                 console.log(message + " " + Math.round((amount / total) * 100) + "%");
@@ -1090,20 +1112,31 @@ function addAssetToProject(assetInfo, projectData, ondone, onerror, onprogress)
     loadAssetCache(function ()
     {
         console.log("Getting asset info...");
-        getAssetInfo(id, function (err, assetInfo)
+        getAssetInfo(id, function (err, assetInfo, skipCache)
         {
-            var versions = getItemVersions(assetInfo);
+            var versions;
+            
+            if (err) {
+                console.error(err);
+                return onerror(err);
+            }
+            versions = getItemVersions(assetInfo);
             
             if (!versions[projectVersion]) {
                 return onerror("Version " + projectVersion + " is not avaiable.");
             }
             ///TODO: Skip getting build info if already extracted?
             console.log("Getting build info...");
-            getItemBuildInfo(id, versions[projectVersion].appId, function (err, itemBuildInfo)
+            getItemBuildInfo(id, versions[projectVersion].appId, skipCache, function (err, itemBuildInfo, skipCache)
             {
+                console.log(skipCache);
+                if (err) {
+                    console.error(err);
+                    return onerror(err);
+                }
                 ///TODO: Skip getting manifest if already extracted?
                 console.log("Getting item manifest...");
-                getItemManifest(id, versions[projectVersion].appId, itemBuildInfo, false, function (err, manifest)
+                getItemManifest(id, versions[projectVersion].appId, itemBuildInfo, false, skipCache, function (err, manifest)
                 {
                     var chunks;
                     var appId;
