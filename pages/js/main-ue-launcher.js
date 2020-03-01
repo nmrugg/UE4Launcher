@@ -428,7 +428,7 @@ function implementRefreshVaultButton()
                     createProjectList();
                 }
             },
-            "Enter project directory paths (on per line):",
+            "Enter project directory paths (one per line):",
             "textarea", /// Can also use "textarea"
             currentDirs, /// Default
             "Submit", /// Submit text
