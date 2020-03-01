@@ -285,6 +285,24 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
         }));
     });
     
+    items.push(new ContextualItem({
+        label: "Other",
+        onClick: function ()
+        {
+            simpleAsyncPrompt("Enter Engine Version to Download", function (version)
+            {
+                if (version) {
+                    if (version[0] === ".") {
+                        version = "4" + version;
+                    } else if (version.substr(0, 2) !== "4.") {
+                        version = "4." + version;
+                    }
+                    addAssetToProject(assetData, {downloadOnly: true, version: version}, assetContainerEl, assetImageEl);
+                }
+            });
+        }
+    }));
+    
     return items;
 }
 
