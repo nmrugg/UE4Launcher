@@ -422,7 +422,6 @@ function implementRefreshVaultButton()
         pb.prompt(
             function onUpdate(paths)
             {
-                paths = paths.trim().replace(/\r/g, "").replace(/\n{2,}/g, "\n");
                 if (paths && paths !== currentDirs) {
                     ipc.sendSync("updateProjectDirs", paths);
                     loadConfig();

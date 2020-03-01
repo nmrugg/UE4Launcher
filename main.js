@@ -862,12 +862,18 @@ ipc.on("getProjects", function (e, arg)
 
 ipc.on("updateProjectDirs", function (e, paths)
 {
+    var os;
+    
     if (paths) {
         /// Make sure it does not freeze.
         try {
-            saveConfig();
+            os = require("os");
+            /// Clean up whitespace, convert leading ~ to home directory.
+            paths = paths.trim().replace(/\r/g, "").replace(/\n{2,}/g, "\n").replace(/(^|\n)~/g, "$1" + os.homedir());
+            
             configData.projectDirPaths = paths.split("\n");
             verifyConfigData();
+            saveConfig();
         } catch (e) {
             console.error(e);
         }
