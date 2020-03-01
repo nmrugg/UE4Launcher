@@ -6,6 +6,7 @@ var p = require("path");
 var fs = require("fs");
 var request = require("./libs/request-helper.js");
 var loadJsonFile = require("./libs/loadJsonFile.js");
+var projectsManager = require("./libs/projects.js");
 var app = electron.app;
 var BrowserWindow = electron.BrowserWindow;
 var Menu = electron.Menu;
@@ -37,8 +38,23 @@ function loadConfig()
 {
     configData = loadJsonFile.sync(configPath, {});
     
+    verifyConfigData();
+}
+
+function verifyConfigData()
+{
+    var os;
+    
     if (!configData.engines) {
         configData.engines = [];
+    }
+    
+    if (!configData.projectDirPaths || configData.projectDirPaths.length === 0) {
+        os = require("os");
+        configData.projectDirPaths = [
+            p.join(os.homedir(), "Unreal Projects"),
+            p.join(os.homedir(), "Documents", "Unreal Projects"),
+        ];
     }
 }
 
@@ -836,6 +852,28 @@ ipc.on("addAssetToProject", function (e, data)
     {
         e.reply("addingAssetProgress", JSON.stringify({id: resId, progress: progress}));
     });
+});
+
+ipc.on("getProjects", function (e, arg)
+{
+    verifyConfigData();
+    e.returnValue = JSON.stringify(projectsManager.sortProjects(projectsManager.getProjects(configData.projectDirPaths, configData.engines)));
+});
+
+ipc.on("updateProjectDirs", function (e, paths)
+{
+    if (paths) {
+        /// Make sure it does not freeze.
+        try {
+            saveConfig();
+            configData.projectDirPaths = paths.split("\n");
+            verifyConfigData();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    /// If you do not set this, it will hang.
+    e.returnValue = "";
 });
 
 addAssetToProject = require("./libs/epicApi.js")(configData, loginIfNecessary, logout);

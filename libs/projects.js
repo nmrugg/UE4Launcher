@@ -2,13 +2,6 @@
 
 var fs = require("fs");
 var p = require("path");
-var os = require("os");
-
-var projectDirPaths = [
-    p.join(os.homedir(), "Unreal Projects"),
-    p.join(os.homedir(), "Documents", "Unreal Projects"),
-];
-
 
 function getProjectVersionFromEnginePath(name, projectPath, engines)
 {
@@ -39,7 +32,7 @@ function getProjectVersionFromEnginePath(name, projectPath, engines)
     return "";
 }
 
-function getProjects(engines)
+function getProjects(projectDirPaths, engines)
 {
     var projectDirs;
     var projects = [];
@@ -79,21 +72,25 @@ function getProjects(engines)
 
 function sortProjects(projects, type, desc)
 {
-    if (!type || type === "caseInsensitive") {
-        projects.sort(function (a, b)
-        {
-            return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-        });
-    } else if (type === "caseSensitive") {
-        projects.sort(function (a, b)
-        {
-            return a.name.localeCompare(b.name);
-        });
+    if (projects && Array.isArray(projects)) {
+        if (!type || type === "caseInsensitive") {
+            projects.sort(function (a, b)
+            {
+                return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+            });
+        } else if (type === "caseSensitive") {
+            projects.sort(function (a, b)
+            {
+                return a.name.localeCompare(b.name);
+            });
+        }
+        
+        if (desc) {
+            projects.reverse();
+        }
     }
     
-    if (desc) {
-        projects.reverse();
-    }
+    return projects;
 }
 
 module.exports = {

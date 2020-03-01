@@ -3,7 +3,6 @@
 var fs = require("fs");
 var p = require("path");
 var spawn = require("child_process").spawn;
-var SHARED = require(p.join(__dirname, "..", "shared", "functions.js"));
 var events = require(p.join(__dirname, "..", "shared", "events.js"));
 var electron = require("electron");
 var ipc = electron.ipcRenderer;
@@ -39,9 +38,7 @@ function createProjectList()
     var projectsAreaEl = document.getElementById("projects");
     var defaultThumb = "imgs/default_game_thumbnail.png";
     
-    projects = SHARED.getProjects(configData.engines);
-    
-    SHARED.sortProjects(projects);
+    projects = parseJson(ipc.sendSync("getProjects"), []);
     
     projectsAreaEl.innerHTML = "";
     
@@ -355,7 +352,7 @@ function createVaultList()
     updateVault();
 }
 
-function asyncPrompt(message, cb)
+function simpleAsyncPrompt(message, cb)
 {
     pb.prompt(
         cb,
@@ -370,7 +367,7 @@ function asyncPrompt(message, cb)
 
 function manualEngineInstallPrompt()
 {
-    asyncPrompt("Enter Unreal Engine directory path:", function (path)
+    simpleAsyncPrompt("Enter Unreal Engine directory path:", function (path)
     {
         if (path) {
             ipc.sendSync("addEngine", path);
@@ -415,6 +412,35 @@ function implementAddEngineButton()
 }
 
 function implementRefreshVaultButton()
+{
+    var configButton = document.getElementById("configProjects");
+    
+    configProjects.onclick = function ()
+    {
+        var currentDirs = configData.projectDirPaths.join("\n");
+        
+        pb.prompt(
+            function onUpdate(paths)
+            {
+                paths = paths.trim().replace(/\r/g, "").replace(/\n{2,}/g, "\n");
+                if (paths && paths !== currentDirs) {
+                    ipc.sendSync("updateProjectDirs", paths);
+                    loadConfig();
+                    createProjectList();
+                }
+            },
+            "Enter project directory paths (on per line):",
+            "textarea", /// Can also use "textarea"
+            currentDirs, /// Default
+            "Submit", /// Submit text
+            "Cancel", /// Cancel text
+            {} /// Additional options
+        );
+    }
+}
+
+
+function implementConfigProjectsButton()
 {
     var refreshButton = document.getElementById("vaultRefresh");
     
@@ -502,4 +528,3 @@ implementAddEngineButton();
 prepareForAddingAssets();
 
 registerShortcuts();
-
