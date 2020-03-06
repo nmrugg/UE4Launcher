@@ -429,7 +429,7 @@ function implementAddEngineButton()
     addEngineEl.onclick = manualEngineInstallPrompt;
 }
 
-function implementRefreshVaultButton()
+function implementConfigProjectsButton()
 {
     var configButton = document.getElementById("configProjects");
     
@@ -457,7 +457,7 @@ function implementRefreshVaultButton()
 }
 
 
-function implementConfigProjectsButton()
+function implementRefreshVaultButton()
 {
     var refreshButton = document.getElementById("vaultRefresh");
     
@@ -529,6 +529,8 @@ function registerShortcuts()
 }
 
 implementRefreshVaultButton();
+
+implementConfigProjectsButton();
 
 loadConfig();
 

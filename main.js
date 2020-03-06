@@ -625,6 +625,7 @@ function updateVault(ignoreCache, cb)
     var shouldDownload;
     
     if (offline) {
+        console.log("Not updating vault: offline")
         if (cb) {
             setImmediate(cb);
         }
@@ -654,6 +655,7 @@ function updateVault(ignoreCache, cb)
                 }
             });
         } else {
+            console.log("Not updating vault: already up to date")
             setImmediate(cb);
         }
     }
