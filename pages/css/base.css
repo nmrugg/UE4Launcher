@@ -289,7 +289,7 @@ legend {
 }
 
 .spin {
-    animation: spin 1s linear infinite;
+    animation: spin 0.6s linear infinite;
 }
 @keyframes spin {
     from {transform:rotate(0deg);}
