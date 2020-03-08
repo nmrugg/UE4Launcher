@@ -154,6 +154,10 @@
       base$.id = that._prefixes.container;
       base$.className = that._prefixes.alert;
       backdrop$.className = that._prefixes.backdrop;
+      backdrop$.onclick = function ()
+      {
+        complete();
+      };
 
       // Position base element as absolute
       if (opts.absolute === true) {
@@ -225,6 +229,10 @@
       base$.id = that._prefixes.container;
       base$.className = that._prefixes.confirm;
       backdrop$.className = that._prefixes.backdrop;
+      backdrop$.onclick = function ()
+      {
+        complete();
+      };
 
       // Position base element as absolute
       if (opts.absolute === true) {
@@ -306,6 +314,10 @@
       base$.id = that._prefixes.container;
       base$.className = that._prefixes.prompt;
       backdrop$.className = that._prefixes.backdrop;
+      backdrop$.onclick = function ()
+      {
+        complete();
+      };
 
       // Position base element as absolute
       if (opts.absolute === true) {
@@ -605,8 +617,8 @@ NodeList.prototype.remove = HTMLCollection.prototype.remove = function () {
 var pb = new PromptBoxes({
     attrPrefix: 'pb',
     speeds: {
-      backdrop: 500,  // The enter/leaving animation speed of the backdrop
-      toasts: 500     // The enter/leaving animation speed of the toast
+      backdrop: 250,  // The enter/leaving animation speed of the backdrop
+      toasts: 250     // The enter/leaving animation speed of the toast
     },
     alert: {
       okText: 'Ok',           // The text for the ok button
