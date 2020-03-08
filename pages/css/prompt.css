@@ -189,3 +189,7 @@
       border-color: #CCC;
       color: #999;
       cursor: not-allowed; }
+
+.errorMessage {
+    background-color: rgba(125, 0, 0, 0.8);
+}

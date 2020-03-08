@@ -158,6 +158,10 @@
       {
         complete();
       };
+      
+      if (opts.error) {
+        backdrop$.classList.add("errorMessage");
+      }
 
       // Position base element as absolute
       if (opts.absolute === true) {
