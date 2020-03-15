@@ -807,11 +807,39 @@ function addEngine(path)
     }
 }
 
+function findImageInDir(dir, cb)
+{
+    fs.readdir(dir, function onread(err, paths)
+    {
+        var i;
+        var len;
+        var ext;
+        
+        if (paths) {
+            len = paths.length;
+            for (i = 0; i < len; ++i) {
+                ext = p.extname(paths[i]).toLowerCase();
+                if (ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".webp") {
+                    return cb(p.join(dir, paths[i]));
+                }
+            }
+        }
+        cb();
+    });
+}
+
 
 function findImage(path, cb)
 {
-    ///TODO
-    setImmediate(cb);
+    /// Check a couple of common directories.
+    findImageInDir(p.join(path, "Resources"), function onsearch(imgPath)
+    {
+        if (imgPath) {
+            return cb(imgPath);
+        }
+        
+        findImageInDir(path, cb);
+    });
 }
 
 function addLocalAssetDir(path, cb)

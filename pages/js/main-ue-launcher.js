@@ -476,7 +476,7 @@ function manualEngineInstallPrompt()
 
 function installNew()
 {
-    
+    ///TODO
 }
 
 function implementAddEngineButton()
