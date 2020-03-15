@@ -866,6 +866,24 @@ function addLocalAsset(path, cb)
     });
 }
 
+
+function delLocalAsset(path, cb)
+{
+    var i;
+    
+    for (i = localAssetsData.length - 1; i >= 0; --i) {
+        if (localAssetsData[i].path === path) {
+            localAssetsData.splice(i, 1);
+        }
+    }
+    
+    saveLocalAssets(function ()
+    {
+        cb();
+    });
+}
+
+
 function loadAssetCache(cb)
 {
     loadJsonFile(assetJsonPath, {}, function onload(json)
@@ -923,10 +941,17 @@ ipc.on("addEngine", function (e, path)
 
 ipc.on("addLocalAsset", function (e, path)
 {
-    /// Make sure it does not freeze.
     addLocalAsset(path, function (err)
     {
-        e.reply("addedLocalAsset", err);
+        e.reply("localAssetsModified", err);
+    });
+});
+
+ipc.on("delLocalAsset", function (e, path)
+{
+    delLocalAsset(path, function ()
+    {
+        e.reply("localAssetsModified", null);
     });
 });
 

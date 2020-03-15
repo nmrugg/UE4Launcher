@@ -294,6 +294,17 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl, is
                 });
             }
         }));
+    } else {
+        ///TODO: Be able to delete/hide things from the vault.
+        items.push(new ContextualItem({type: "seperator"}));
+        items.push(new ContextualItem({
+            /// Add a checkmark to versions that are already downloaded.
+            label: "Delete",
+            onClick: function ()
+            {
+                deleteLocalAsset(assetData);
+            }
+        }));
     }
     
     return items;
@@ -367,7 +378,7 @@ function createLocalAssetList()
         });
     }
     
-    ipc.on("addedLocalAsset", function (event, err)
+    ipc.on("localAssetsModified", function (event, err)
     {
         if (err) {
            error(err);
@@ -494,6 +505,17 @@ function implementAddEngineButton()
     ///TODO: Be able to download and install an engine automatically.
     ///addEngineEl.onclick = installMenu;
     addEngineEl.onclick = manualEngineInstallPrompt;
+}
+
+
+function deleteLocalAsset(assetData)
+{
+    pb.confirm(function (confirmed)
+    {
+        if (confirmed) {
+            ipc.send("delLocalAsset", assetData.path);
+        }
+    }, "Are you sure you want to delete \u201c" + assetData.title + "\u201d?");
 }
 
 function implementAddLocalAssetButton()
