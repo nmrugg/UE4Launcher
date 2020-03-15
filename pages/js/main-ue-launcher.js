@@ -101,7 +101,7 @@ function launchEngine(engine, project)
             ///HACK to just use the first engine installed.
             engine = configData.engines[0];
         } else {
-            console.error("No engine installed");
+            error("No engine installed");
         }
     }
     
@@ -197,8 +197,9 @@ function prepareForAddingAssets()
     ipc.on("addingAssetErr", function (event, data)
     {
         data = parseJson(data);
-        console.error("Asset installation falied");
+        error("Asset installation falied.");
         console.error(data);
+        
         onfinish();
     });
     
@@ -242,7 +243,7 @@ function hasDownloaded(assetData, version)
     return false;
 }
 
-function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
+function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl, isLocal)
 {
     var items = [
         new ContextualItem({type: "custom", markup: "<strong>Add to Project</strong>"})
@@ -259,49 +260,41 @@ function createAddProjectMenuItems(assetData, assetContainerEl, assetImageEl)
         }));
     });
     
-    items.push(new ContextualItem({type: "seperator"}));
-    
-    /*
-    items.push(new ContextualItem({
-        label: "Download to Cache",
-        onClick: function ()
+    if (!isLocal) {
+        items.push(new ContextualItem({type: "seperator"}));
+        
+        items.push(new ContextualItem({type: "custom", markup: "<strong>Download to Cache</strong>"}));
+        
+        configData.engines.forEach(function (engine)
         {
-            addAssetToProject(assetData, {downloadOnly: true}, assetContainerEl, assetImageEl);
-        }
-    }));
-    */
-    
-    items.push(new ContextualItem({type: "custom", markup: "<strong>Download to Cache</strong>"}));
-    
-    configData.engines.forEach(function (engine)
-    {
+            items.push(new ContextualItem({
+                /// Add a checkmark to versions that are already downloaded.
+                label: engine.version + (hasDownloaded(assetData, engine.version) ? " \u2714" : ""),
+                onClick: function ()
+                {
+                    addAssetToProject(assetData, {downloadOnly: true, version: engine.version}, assetContainerEl, assetImageEl);
+                }
+            }));
+        });
+        
         items.push(new ContextualItem({
-            /// Add a checkmark to versions that are already downloaded.
-            label: engine.version + (hasDownloaded(assetData, engine.version) ? " \u2714" : ""),
+            label: "Other",
             onClick: function ()
             {
-                addAssetToProject(assetData, {downloadOnly: true, version: engine.version}, assetContainerEl, assetImageEl);
+                simpleAsyncPrompt("Enter Engine Version to Download", function (version)
+                {
+                    if (version) {
+                        if (version[0] === ".") {
+                            version = "4" + version;
+                        } else if (version.substr(0, 2) !== "4.") {
+                            version = "4." + version;
+                        }
+                        addAssetToProject(assetData, {downloadOnly: true, version: version}, assetContainerEl, assetImageEl);
+                    }
+                });
             }
         }));
-    });
-    
-    items.push(new ContextualItem({
-        label: "Other",
-        onClick: function ()
-        {
-            simpleAsyncPrompt("Enter Engine Version to Download", function (version)
-            {
-                if (version) {
-                    if (version[0] === ".") {
-                        version = "4" + version;
-                    } else if (version.substr(0, 2) !== "4.") {
-                        version = "4." + version;
-                    }
-                    addAssetToProject(assetData, {downloadOnly: true, version: version}, assetContainerEl, assetImageEl);
-                }
-            });
-        }
-    }));
+    }
     
     return items;
 }
@@ -310,6 +303,80 @@ function updateVault(ignoreCache)
 {
     events.emit("updatingVault");
     ipc.send("updateVault", ignoreCache ? "1" : "0");
+}
+
+
+function error(message, buttonText, options, cb)
+{
+    console.error(message);
+    options = options || {};
+    options.error = true;
+    pb.alert(cb || function () {}, message, buttonText || "OK", options);
+}
+
+function alert(message, buttonText, options, cb)
+{
+    pb.alert(cb || function () {}, message, buttonText || "OK", options);
+}
+
+function createLocalAssetList()
+{
+    var containerEl = document.getElementById("localAssets");
+    
+    function listLocalAssets()
+    {
+        var localAssets = parseJson(ipc.sendSync("getLocalAssets"), []);
+        
+        containerEl.innerHTML = "";
+        
+        localAssets.forEach(function (item)
+        {
+            var container = document.createElement("div");
+            var img = document.createElement("div");
+            var title = document.createElement("div");
+            
+            container.className = "vault-item";
+            img.className = "vault-item-image";
+            if (item.thumbnail) {
+                img.style.backgroundImage = "url(\"" + (item.thumbnail) + "\")";
+            } else {
+                img.style.backgroundImage = "url(\"imgs/unknown.png\")";
+            }
+            
+            title.className = "vault-item-title";
+            title.textContent = item.title;
+            
+            container.appendChild(img);
+            container.appendChild(title);
+            containerEl.appendChild(container);
+            
+            item.isLocal = true;
+            
+            function showAddToProjectMenu(e)
+            {
+                e.preventDefault();
+                new Contextual({
+                    isSticky: false,
+                    width: '250px',
+                    items: createAddProjectMenuItems(item, container, img, true),
+                });
+            };
+            
+            container.onclick = showAddToProjectMenu;
+            container.oncontextmenu = showAddToProjectMenu;
+        });
+    }
+    
+    ipc.on("addedLocalAsset", function (event, err)
+    {
+        if (err) {
+           error(err);
+        }
+        
+        createLocalAssetList();
+    });
+    
+    listLocalAssets();
 }
 
 function createVaultList()
@@ -429,6 +496,24 @@ function implementAddEngineButton()
     addEngineEl.onclick = manualEngineInstallPrompt;
 }
 
+function implementAddLocalAssetButton()
+{
+    document.getElementById("addAsset").onclick = function ()
+    {
+        simpleAsyncPrompt("Enter asset path:", function (path)
+        {
+            if (path) {
+                ipc.send("addLocalAsset", path);
+                ///TODO: Make the local assets listen for updates
+                /*
+                loadConfig();
+                createLocalAssetList();
+                */
+            }
+        });
+    };
+}
+
 function implementConfigProjectsButton()
 {
     var configButton = document.getElementById("configProjects");
@@ -542,8 +627,12 @@ createProjectList();
 
 createVaultList();
 
+createLocalAssetList();
+
 implementAddEngineButton();
 
 prepareForAddingAssets();
 
 registerShortcuts();
+
+implementAddLocalAssetButton();

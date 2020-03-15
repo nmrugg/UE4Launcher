@@ -147,7 +147,7 @@ legend {
     padding: 20px 12px 20px 0;
 }
 
-#addEngine {
+#addEngine, #addAsset {
     background: #A78529;
     color: #131313;
     font-weight: bold;

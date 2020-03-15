@@ -16,16 +16,18 @@ var isLoggedIn = false;
 var cookies;
 var offline = false;
 
-var addAssetToProject;
+var assetAPI;
 
 var cacheDir = p.join(__dirname, "cache");
 var vaultPath = p.join(cacheDir, "vault.json");
 var configPath = p.join(__dirname, "config.json");
 var assetJsonPath = p.join(cacheDir, "assets.json");
+var localAssetsPath = p.join(__dirname, "localAssets.json");
 
 var vaultData;
 var configData;
 var assetsData;
+var localAssetsData;
 
 function mkdirSync(dir)
 {
@@ -65,6 +67,37 @@ function saveConfig(data)
 }
 
 
+function loadLocalAssets(cb)
+{
+    loadJsonFile(localAssetsPath, [], function onload(json)
+    {
+        localAssetsData = json;
+        if (cb) {
+            cb();
+        }
+    });
+}
+
+function saveLocalAssets(cb)
+{
+    if (!localAssetsData || !localAssetsData.length) {
+        fs.unlink(localAssetsPath, function ()
+        {
+            if (cb) {
+                cb();
+            }
+        });
+    } else {
+        fs.writeFile(localAssetsPath, JSON.stringify(localAssetsData, "", "    "), function onwrite()
+        {
+            if (cb) {
+                cb();
+            }
+        });
+    }
+}
+
+
 
 /*
 var menuTemplate = [
@@ -87,6 +120,8 @@ var menuTemplate = [
 mkdirSync(cacheDir);
 
 loadConfig();
+
+loadLocalAssets();
 
 
 app.on("browser-window-created",function(e,window) {
@@ -772,6 +807,65 @@ function addEngine(path)
     }
 }
 
+
+function findImage(path, cb)
+{
+    ///TODO
+    setImmediate(cb);
+}
+
+function addLocalAssetDir(path, cb)
+{
+    findImage(path, function onfind(imagePath)
+    {
+        localAssetsData.push({
+            title: p.basename(path),
+            path: path,
+            thumbnail: imagePath,
+        });
+        
+        saveLocalAssets(function ()
+        {
+            cb();
+        });
+    });
+}
+
+function hasLocalAsset(path)
+{
+    return localAssetsData.some(function (asset)
+    {
+        return asset.path === path;
+    })
+}
+
+function addLocalAsset(path, cb)
+{
+    /// Check if path is directory or compressed file.
+    /// If directory, add path
+    ///TODO: Be able to copy
+    /// If file, extract
+    /// Find icon
+    /// Add to JSON
+    /// Reply
+    
+    if (hasLocalAsset(path)) {
+        return cb("This asset has already been added.");
+    }
+    
+    fs.stat(path, function onstat(err, stat)
+    {
+        if (err) {
+            console.error(err);
+            return cb("Path cannot be read.");
+        }
+        
+        if (stat.isDirectory()) {
+            addLocalAssetDir(path, cb);
+        }
+    });
+}
+
 function loadAssetCache(cb)
 {
     loadJsonFile(assetJsonPath, {}, function onload(json)
@@ -827,6 +921,16 @@ ipc.on("addEngine", function (e, path)
     e.returnValue = "";
 });
 
+ipc.on("addLocalAsset", function (e, path)
+{
+    /// Make sure it does not freeze.
+    addLocalAsset(path, function (err)
+    {
+        e.reply("addedLocalAsset", err);
+    });
+});
+
+
 ipc.on("addAssetToProject", function (e, data)
 {
     var resId;
@@ -840,26 +944,41 @@ ipc.on("addAssetToProject", function (e, data)
     console.log(data);
     console.log(resId);
     
-    addAssetToProject(data.assetData, data.projectData, function ondone()
-    {
-        console.log("Done with", resId);
-        loadAssetCache(function ()
+    if (data.assetData.isLocal) {
+        assetAPI.moveToProject(data.assetData.path, data.projectData.dir, function ondone()
         {
             e.reply("addingAssetDone", JSON.stringify(resId));
+        }, function onerror(err)
+        {
+            e.reply("addingAssetErr", JSON.stringify({id: resId, err: err}));
         });
-    }, function onerror(err)
-    {
-        e.reply("addingAssetErr", JSON.stringify({id: resId, err: err}));
-    }, function onprogress(progress)
-    {
-        e.reply("addingAssetProgress", JSON.stringify({id: resId, progress: progress}));
-    });
+    } else {
+        assetAPI.addAssetToProject(data.assetData, data.projectData, function ondone()
+        {
+            console.log("Done with", resId);
+            loadAssetCache(function ()
+            {
+                e.reply("addingAssetDone", JSON.stringify(resId));
+            });
+        }, function onerror(err)
+        {
+            e.reply("addingAssetErr", JSON.stringify({id: resId, err: err}));
+        }, function onprogress(progress)
+        {
+            e.reply("addingAssetProgress", JSON.stringify({id: resId, progress: progress}));
+        });
+    }
 });
 
 ipc.on("getProjects", function (e, arg)
 {
     verifyConfigData();
     e.returnValue = JSON.stringify(projectsManager.sortProjects(projectsManager.getProjects(configData.projectDirPaths, configData.engines)));
+});
+
+ipc.on("getLocalAssets", function (e, arg)
+{
+    e.returnValue = JSON.stringify(localAssetsData);
 });
 
 ipc.on("updateProjectDirs", function (e, paths)
@@ -883,4 +1002,4 @@ ipc.on("updateProjectDirs", function (e, paths)
     e.returnValue = "";
 });
 
-addAssetToProject = require("./libs/epicApi.js")(configData, loginIfNecessary, logout);
+assetAPI = require("./libs/epicApi.js")(configData, loginIfNecessary, logout);

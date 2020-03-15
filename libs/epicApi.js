@@ -1017,10 +1017,8 @@ function isDir(path, cb)
     });
 }
 
-function moveToProject(appNameString, projectBaseDir, ondone, onerror)
+function moveToProject(extractedBasePath, projectBaseDir, ondone, onerror)
 {
-    var extractedBasePath = p.join(cacheDir, "assets", appNameString, "extracted");
-    
     function copyDir(fromDir, toDir, cb)
     {
         fs.readdir(fromDir, function onread(err, files)
@@ -1177,7 +1175,8 @@ function addAssetToProject(assetInfo, projectData, ondone, onerror, onprogress)
                             }
                             
                             onprogress({type: "copying"});
-                            moveToProject(manifest.AppNameString, projectBaseDir, ondone, function (err)
+                            
+                            moveToProject(p.join(cacheDir, "assets", manifest.AppNameString, "extracted"), projectBaseDir, ondone, function (err)
                             {
                                 console.error(err);
                                 onerror(err);
@@ -1213,7 +1212,10 @@ module.exports = function init(_config, _loginIfNecessary, _logout)
     loginIfNecessary = _loginIfNecessary;
     logout = _logout;
     
-    return addAssetToProject;
+    return {
+        addAssetToProject: addAssetToProject,
+        moveToProject: moveToProject,
+    };
 };
 
 /// Was this called directly?

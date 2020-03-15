@@ -3,3 +3,4 @@ etc
 release-builds
 cache/
 config.json
+localAssets.json
