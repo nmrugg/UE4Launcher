@@ -7,6 +7,30 @@ var events = require(p.join(__dirname, "..", "shared", "events.js"));
 var electron = require("electron");
 var ipc = electron.ipcRenderer;
 
+var FindInPage = require('./js/find/index.js').FindInPage;
+
+let findInPage = new FindInPage(electron.remote.getCurrentWebContents(), {
+  preload: true,
+  offsetTop: 6,
+  offsetRight: 10,
+  boxBgColor: '#333',
+  boxShadowColor: '#000',
+  inputColor: '#aaa',
+  inputBgColor: '#222',
+  inputFocusColor: '#555',
+  textColor: '#aaa',
+  textHoverBgColor: '#555',
+  caseSelectedColor: '#555',
+  duration: 200
+})
+
+
+/*
+ipc.on('on-find', (e, args) => {
+  findInPage.openFindWindow()
+})
+*/
+
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
 var lastEngineLaunched;
 var lastProjectLaunched;
@@ -631,6 +655,8 @@ function registerShortcuts()
     {
         if (e.key === "F5") {
             location.reload();
+        } else if (e.key === "f" && e.ctrlKey) {
+            findInPage.openFindWindow();
         }
     }, true);
 }
