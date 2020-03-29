@@ -2,13 +2,13 @@ const EventEmitter = require('events')
 const { print } = require('./utils.js')
 
 const stopActions = ['clearSelection', 'keepSelection', 'activateSelection']
-const wcs = Symbol('webContents')
-const opts = Symbol('options')
-const requestId = Symbol('requestId')
-const activeMatch = Symbol('activeMatch')
-const matches = Symbol('matches')
-const initd = Symbol('initd')
-const preText = Symbol('preText')
+const wcs = 'webContents'
+const opts = 'options'
+const requestId = 'requestId'
+const activeMatch = 'activeMatch'
+const matches = 'matches'
+const initd = 'initd'
+const preText = 'preText'
 
 class Find extends EventEmitter {
   constructor (webContents, options = {}) {

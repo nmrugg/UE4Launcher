@@ -24,13 +24,6 @@ let findInPage = new FindInPage(electron.remote.getCurrentWebContents(), {
   duration: 200
 })
 
-
-/*
-ipc.on('on-find', (e, args) => {
-  findInPage.openFindWindow()
-})
-*/
-
 var unrealEnginePath = "/storage/UnrealEngine/Engine/Binaries/Linux/UE4Editor"; ///TODO: Get real path.
 var lastEngineLaunched;
 var lastProjectLaunched;
@@ -657,6 +650,12 @@ function registerShortcuts()
             location.reload();
         } else if (e.key === "f" && e.ctrlKey) {
             findInPage.openFindWindow();
+            /// Try to make sure that the input is in focus.
+            findInPage.inputFocus();
+            setTimeout(function focusInput()
+            {
+                findInPage.inputFocus();
+            }, 50);
         }
     }, true);
 }
