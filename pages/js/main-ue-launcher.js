@@ -482,11 +482,18 @@ function manualEngineInstallPrompt()
 {
     simpleAsyncPrompt("Enter Unreal Engine directory path:", function (path)
     {
+        var err;
         if (path) {
-            ipc.sendSync("addEngine", path);
-            loadConfig();
-            createEngineList();
-            createProjectList();
+            ///TODO: Make this async.
+            err = ipc.sendSync("addEngine", path);
+            console.log(err)
+            if (err) {
+                error(err);
+            } else {
+                loadConfig();
+                createEngineList();
+                createProjectList();
+            }
         }
     });
 }

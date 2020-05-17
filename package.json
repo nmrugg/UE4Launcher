@@ -4,7 +4,8 @@
   "description": "A cross-platform launcher for Unreal Engine",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "debug": "electron --inspect-brk ."
   },
   "keywords": [
     "UE4"

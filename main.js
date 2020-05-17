@@ -742,7 +742,15 @@ ipc.on("synchronous-message", function (event, arg)
 function getEngineVersion(path)
 {
     var data;
-    var match;
+    var match
+    
+    try {
+        //Engine/Build/Build.version ;
+        data = JSON.parse(fs.readFileSync(p.join(path, "Engine", "Build", "Build.version"), "utf8"));
+        if (data.MajorVersion && data.MinorVersion) {
+            return data.MajorVersion + "." + data.MinorVersion;
+        }
+    } catch (e) {}
     
     try {
         /// Check the last tag for the engine number.
@@ -761,6 +769,7 @@ function getEngineVersion(path)
             return match[1];
         }
     } catch (e) {}
+    
 }
 
 
@@ -804,7 +813,10 @@ function addEngine(path)
             execPath: execPath,
         });
         saveConfig();
+        return true;
     }
+    
+    throw new Error("Cannot add engine");
 }
 
 function findImageInDir(dir, cb)
@@ -957,14 +969,16 @@ ipc.on("getAssetsData", function (e, arg)
 
 ipc.on("addEngine", function (e, path)
 {
+    ///TODO: Make it async.
     /// Make sure it does not freeze.
     try {
         addEngine(path);
-    } catch (e) {
-        console.error(e);
+        /// If you do not set this, it will hang.
+        e.returnValue = "";
+    } catch (err) {
+        console.error(err);
+        e.returnValue = err.message;
     }
-    /// If you do not set this, it will hang.
-    e.returnValue = "";
 });
 
 ipc.on("addLocalAsset", function (e, path)
