@@ -1,6 +1,6 @@
 {
-  "name": "UE4Launcher",
-  "version": "0.0.1",
+  "name": "ue4launcher",
+  "version": "0.1.0",
   "description": "A cross-platform launcher for Unreal Engine",
   "main": "main.js",
   "scripts": {
@@ -15,5 +15,17 @@
   "devDependencies": {
     "electron": "=8.2.1",
     "request": "=2.88.0"
-  }
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nmrugg/UE4Launcher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nmrugg/UE4Launcher/issues"
+  },
+  "homepage": "https://github.com/nmrugg/UE4Launcher#readme"
 }
