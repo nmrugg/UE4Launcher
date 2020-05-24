@@ -27,9 +27,27 @@ function getProjectVersionFromEnginePath(name, projectPath, engines)
                 }
             }
         }
-    } catch (e) {console.error(e)}
+    } catch (e) {console.error(e);}
     
     return "";
+}
+
+function findProjectFile(dir)
+{
+    var projectPath = p.join(dir, p.basename(dir) + ".uproject");
+    
+    if (!fs.existsSync(projectPath)) {
+        fs.readdirSync(dir).some(function (file)
+        {
+            var ext = p.extname(file).toLowerCase();
+            if (ext === ".uproject") {
+                projectPath = projectPath = p.join(dir, file);
+                return true;
+            }
+        });
+    }
+    
+    return projectPath;
 }
 
 function getProjects(projectDirPaths, engines)
@@ -49,16 +67,14 @@ function getProjects(projectDirPaths, engines)
         {
             var path = p.join(baseDir, dir);
             var thumb;
-            var projectPath;
             var proj;
             
             if (fs.statSync(path).isDirectory()) {
                 thumb = p.join(path, "Saved", "AutoScreenshot.png");
-                projectPath = p.join(path, dir + ".uproject");
                 proj = {
                     name: dir,
                     dir: path,
-                    projectPath: projectPath,
+                    projectPath: findProjectFile(path),
                     thumb: fs.existsSync(thumb) ? thumb : null,
                     version: getProjectVersionFromEnginePath(dir, path, engines),
                 };
