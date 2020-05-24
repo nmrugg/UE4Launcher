@@ -62,10 +62,11 @@ Hope for the best.
 
 <h2>Updating</h2>
 
-After installing, to update the launcher, simply run this command in the UE4Launcher directory:
+After installing, to update the launcher, simply run this in the UE4Launcher directory:
 
 ```bash
 git pull
+npm i
 ```
 
 <h2>Thanks</h2>
