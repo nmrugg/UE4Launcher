@@ -13,7 +13,7 @@
   "author": "nmrugg@gmail.com",
   "license": "MIT",
   "devDependencies": {
-    "electron": "=8.2.1",
+    "electron": "=8.2.4",
     "request": "=2.88.0"
   },
   "directories": {
