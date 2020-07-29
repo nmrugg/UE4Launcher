@@ -232,11 +232,10 @@ function login(cb)
     var needsToRedirect;
     var redirectTimer;
     var atLeastOnePageLoaded = false;
-    var loginURL = "https://www.unrealengine.com/login";
+    var loginURL = "https://www.epicgames.com/id/login";
     var currentURL = loginURL;
     
     /// Another url
-    /// https://www.unrealengine.com/id/login?redirectUrl=https%3A%2F%2Fwww.unrealengine.com%2Fmarketplace%2Fen-US%2Fstore&client_id=932e595bedb643d9ba56d3e1089a5c4b&noHostRedirect=true
     console.log("logging in")
     
     if (loginWindow) {

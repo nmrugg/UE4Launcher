@@ -36,7 +36,7 @@ function mkdirSync(dir)
 
 var login = (function ()
 {
-    var totalSteps = 7;
+    var totalSteps = 5;
     
     /// Step 1: Get form and cookies
     function getWebLoginForm(user, pass, ondone, onerror, onprogress)
@@ -101,189 +101,165 @@ var login = (function ()
     function webAuthorize(ondone, onerror, onprogress)
     {
         var opts = {
-            uri: "https://www.epicgames.com/id/api/exchange",
+            uri: "https://www.epicgames.com/id/api/authenticate",
             headers: {
                 Cookie: request._getWebCookieString(),
-                Origin: "allar_ue4_marketplace_commandline",
+                //Origin: "allar_ue4_marketplace_commandline",
+                Origin: "https://www.epicgames.com",
                 //Host: "accounts.unrealengine.com",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) EpicGamesLauncher/10.18.1-13954725+++Portal+Release-Live UnrealEngine/4.23.0-13954725+++Portal+Release-Live Chrome/59.0.3071.15 Safari/537.36",
+                Referer: "https://www.epicgames.com/id/login/welcome",
+                "X-Epic-Event-Action": "login",
+                "X-Epic-Event-Category": "login",
+                "X-Epic-Strategy-Flags": "guardianEmailVerifyEnabled=false;guardianEmbeddedDocusignEnabled=true;guardianKwsFlowEnabled=false;minorPreRegisterEnabled=false",
+                "X-Requested-With": "XMLHttpRequest",
+                "X-XSRF-TOKEN": request._fakeJar["XSRF-TOKEN"],
             },
         };
         
-        onprogress(2, "Authorizing...", totalSteps);
+        onprogress(2, "Authenticating...", totalSteps);
         
         request.get(opts, function(err, res, body)
         {
-            var json;
-            var code;
-            
             if (!err && res.statusCode === 200) {
                 request._updateFakeJar(res.headers["set-cookie"]);
-                onprogress(3, "Authorized", totalSteps);
-                //console.log(body)
-                json = JSON.parse(body);
-                //console.log(json)
-                //var code = json.redirectURL.split('?code=')[1];
-                code = json.code;
-                webExchange(code, ondone, onerror, onprogress);
+                /// Unnecessary?
+                renewCSRF(ondone, onerror, onprogress, function ()
+                {
+                    generateExchange(ondone, onerror, onprogress);
+                });
             } else {
-                onerror(err, "Failed to authorize", res, body);
+                console.log(res.headers)
+                console.log("---")
+                console.log(body)
+                console.log("~~~")
+                console.log(err)
+                console.error("GETTING CSRF failed");
+                onerror(err, "GETTING CSRF  failed", res, body);
             }
         });
     }
     
-    function webExchange(code, ondone, onerror, onprogress)
+    function renewCSRF(ondone, onerror, onprogress, cb)
     {
         var opts = {
-            uri: "https://www.unrealengine.com/exchange",
+            uri: "https://www.epicgames.com/id/api/csrf",
             headers: {
                 Cookie: request._getWebCookieString(),
-                //"Origin": "allar_ue4_marketplace_commandline",
-                //"Accept-Language": "en-US,en;q=0.8",
-                //host: "accounts.unrealengine.com",
-            },
-            qs: {
-                code: code
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) EpicGamesLauncher/10.18.1-13954725+++Portal+Release-Live UnrealEngine/4.23.0-13954725+++Portal+Release-Live Chrome/59.0.3071.15 Safari/537.36",
+                Referer: "https://www.epicgames.com/id/login/welcome",
+                "X-Epic-Event-Action": "login",
+                "X-Epic-Event-Category": "login",
+                "X-Epic-Strategy-Flags": "guardianEmailVerifyEnabled=false;guardianEmbeddedDocusignEnabled=true;guardianKwsFlowEnabled=false;minorPreRegisterEnabled=false",
+                "X-Requested-With": "XMLHttpRequest",
+                "X-XSRF-TOKEN": request._fakeJar["XSRF-TOKEN"],
             },
         };
         
-        onprogress(3, "Beginining Web Exchange...", totalSteps);
+        onprogress(3, "Renewing CSRF...", totalSteps);
         
         request.get(opts, function(err, res, body)
         {
-            console.log(body);
-            console.log(res.headers)
-            if (!err && res.statusCode == 302) {
-                
+            if (!err && res.statusCode < 300) {
                 request._updateFakeJar(res.headers["set-cookie"]);
-                onprogress(4, "Web Exchange successful", totalSteps);
-                oAuthViaPassword(code, ondone, onerror, onprogress);
+                cb(ondone, onerror, onprogress);
             } else {
-                onerror(err, "Web Exchange failed: " + JSON.stringify(res, "", "  "));
+                console.log(res.headers)
+                console.log("---")
+                console.log(body)
+                console.log("~~~")
+                console.log(err)
+                console.error("GETTING CSRF failed");
+                onerror(err, "GETTING CSRF  failed", res, body);
             }
         });
     }
     
-    function oAuthViaPassword(code, ondone, onerror, onprogress)
+    function generateExchange(ondone, onerror, onprogress)
     {    
         var opts = {
-            uri: "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token",
+            uri: "https://www.epicgames.com/id/api/exchange/generate",
             headers: {
-                Authorization: "basic MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=",
-                Origin: "allar_ue4_marketplace_commandline"
+                Cookie: request._getWebCookieString(),
+                Origin: "https://www.epicgames.com",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) EpicGamesLauncher/10.18.1-13954725+++Portal+Release-Live UnrealEngine/4.23.0-13954725+++Portal+Release-Live Chrome/59.0.3071.15 Safari/537.36",
+                Referer: "https://www.epicgames.com/id/login/welcome",
+                "X-Epic-Event-Action": "login",
+                "X-Epic-Event-Category": "login",
+                "X-Epic-Strategy-Flags": "guardianEmailVerifyEnabled=false;guardianEmbeddedDocusignEnabled=true;guardianKwsFlowEnabled=false;minorPreRegisterEnabled=false",
+                "X-Requested-With": "XMLHttpRequest",
+                "X-XSRF-TOKEN": request._fakeJar["XSRF-TOKEN"],
             },
+        };
+        
+        onprogress(4, "Generating Exchange...", totalSteps);
+        
+        request.post(opts, function(err, res, body)
+        {
+            var json;
+            if (!err && res.statusCode === 200) {
+                request._updateFakeJar(res.headers["set-cookie"]);
+                try {
+                    json = JSON.parse(body);
+                    console.log(json)
+                    console.log(json.code)
+                    initOAuth(json.code, ondone, onerror, onprogress);
+                } catch (e) {
+                    console.error(err);
+                }
+            } else {
+                console.log(res.headers)
+                console.log("---")
+                console.log(body)
+                console.log("~~~")
+                console.log(err)
+                console.error("GETTING CSRF failed");
+                onerror(err, "GETTING CSRF  failed", res, body);
+            }
+        });
+    }
+    
+    function initOAuth(code, ondone, onerror, onprogress)
+    {
+        var opts = {
+            uri: "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token",
             form: {
                 grant_type: "exchange_code",
                 exchange_code: code,
                 token_type: "eg1",
-                includePerms: false
+            },
+            headers: {
+                /// Is this ID neccessary? What about each part?
+                "X-Epic-Correlation-ID": "UE4-" + request._fakeJar.EPIC_DEVICE + "-E5E6229A474CBD0CD937F2A211029A98-BA82B58E4F388B14AD8D2694E9FB47B2",
+                "User-Agent": "UELauncher/10.18.1-13954725+++Portal+Release-Live Windows/10.0.10240.1.256.64bit",
+                "Content-Type": "application/x-www-form-urlencoded",
+                Authorization: "basic MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=",
             },
         };
         
-        onprogress(4, "Getting OAuth token...", totalSteps);
+        onprogress(5, "Initiating OAuth...", totalSteps);
         
         request.post(opts, function(err, res, body)
         {
-            if (!err && res.statusCode == 200) {
-                onprogress(5, "Got OAuth token", totalSteps);
-                epicOauth = JSON.parse(body);
-                oAuthExchange(ondone, onerror, onprogress);
-            } else {
-                onerror(err, "OAuth Via Password failed: " + JSON.stringify(res, "", "  "));
-            }
-        });
-    }
-    
-    function oAuthExchange(ondone, onerror, onprogress)
-    {
-        var opts = {
-            uri: "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/exchange",
-            headers: {
-                Authorization: "bearer " + epicOauth.access_token,
-                Origin: "allar_ue4_marketplace_commandline"
-            },
-        };
-        
-        if (onprogress) {
-            onprogress(5, "Getting OAuth exchange code...", totalSteps);
-        }
-        
-        request.get(opts, function(err, res, body)
-        {
             var json;
-            
-            if (!err && res.statusCode == 200) {
-                json = JSON.parse(body);
-                epicOauth.code = json.code;
-                
-                if (onprogress) {
-                    onprogress(6, "Got OAuth exchange code", totalSteps);
-                }
-                
-                // Grab our SSO token
-                if (epicSSO === undefined) {
-                    getSSOWithOAuthCode(ondone, onerror, onprogress);
-                } else {
-                    if (onprogress) {
-                        onprogress(7, "Successfully authorized", totalSteps);
-                    }
-                    if (ondone) {
-                        ondone();
-                    }
-                    /// Prevent the functions from being triggerd again.
-                    ondone = onerror = onprogress = function () {};
-                }
-                // renew our token before it expires
-                setTimeout(oAuthExchange, 250 * 1000).unref();
-            } else {
-                if (onerror) {
-                    onerror(err, "OAuth renew failed: " + JSON.stringify(res, "", "  "))
-                } else {
-                    console.error(err, "OAuth renew failed: " + JSON.stringify(res, "", "  "));
-                }
-            }
-        });
-    }
-    
-    /// This doesn't seem to do anything.
-    ///TODO: Remove if not necessary.
-    function getSSOWithOAuthCode(ondone, onerror, onprogress)
-    {
-        var opts = {
-            uri: "https://accountportal-website-prod07.ol.epicgames.com/exchange?",
-            headers: {
-                Authorization: "bearer " +  epicOauth.access_token,
-                Origin: "allar_ue4_marketplace_commandline"
-            },
-            qs: {
-                exchangeCode: epicOauth.code,
-                state: "/getSsoStatus",
-            }
-        };
-        
-        if (onprogress) {
-            onprogress(6, "Getting SSO code...", totalSteps);
-        }
-        
-        request.get(opts, function(err, res, body)
-        {
-            /// Should it do this?
-            //request._updateFakeJar(res.headers["set-cookie"]);
-            
-            if (!err && res.statusCode == 302) {
-                if (onprogress) {
-                    onprogress(7, "Successfully authorized", totalSteps);
-                }
-                if (ondone) {
+            if (!err && res.statusCode === 200) {
+                request._updateFakeJar(res.headers["set-cookie"]);
+                try {
+                    console.log(body)
+                    epicOauth = JSON.parse(body);
+                    console.log(epicOauth)
                     ondone();
+                } catch (e) {
+                    console.error(err);
                 }
-                /// Prevent the functions from being triggerd again.
-                ondone = onerror = onprogress = function () {};
             } else {
-                if (onerror) {
-                    onerror(err, "Failed to authorize");
-                } else {
-                    console.error(err, "Failed to authorize");
-                }
+                console.log(res.headers)
+                console.log("---")
+                console.log(body)
+                console.log("~~~")
+                console.log(err)
+                console.error("GETTING CSRF failed");
+                onerror(err, "GETTING CSRF  failed", res, body);
             }
         });
     }

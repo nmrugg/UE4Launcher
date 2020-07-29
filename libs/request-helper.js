@@ -6,9 +6,18 @@ var debug = (process.env.LAUNCHER_LOG_REQUEST === "1");
 
 request = request.defaults({followRedirect: false, followAllRedirects: false});
 
+if (!request.options) {
+    request.options = function (opts, cb)
+    {
+        opts.method = "options";
+        request(opts, cb);
+    };
+}
+
 if (debug) {
     request._get = request.get;
     request._post = request.post;
+    request._options = request.options;
     request.get = function (opts, cb)
     {
         console.log("GET");
@@ -20,6 +29,12 @@ if (debug) {
         console.log("POST");
         console.log(opts);
         request._post(opts, cb);
+    };
+    request.options = function (opts, cb)
+    {
+        console.log("OPTIONS");
+        console.log(opts);
+        request._options(opts, cb);
     };
 }
 
