@@ -212,7 +212,7 @@ function downloadURL(url, options, cb)
                 console.error(err);
                 if (retries < 4) {
                     console.log("Retrying download (" + retries + ")");
-                    return setTimtout(sendRequest, 1000);
+                    return setTimeout(sendRequest, 1000);
                 }
             } else if (res.statusCode >= 300) {
                 err = {code: res.statusCode};
