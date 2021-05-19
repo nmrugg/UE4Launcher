@@ -697,6 +697,11 @@ function updateVault(ignoreCache, cb)
 
 function startup()
 {
+    electron.session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+        details.requestHeaders["User-Agent"] = "Chrome";
+        callback({ cancel: false, requestHeaders: details.requestHeaders });
+    });
+
     loadAssetCache(function ()
     {
         createMainWindow();
