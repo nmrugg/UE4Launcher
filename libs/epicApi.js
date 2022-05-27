@@ -1095,13 +1095,21 @@ function addAssetToProject(assetInfo, projectData, ondone, onerror, onprogress)
                 return onerror(err);
             }
             versions = getItemVersions(assetInfo);
-            
+            var version = null;
+
+            // If the right version is not found, ideally we need to let the user decide.
+            // While there is no dialog for that, we'll just take the first available version.
+            // Maybe choose the latest version using semver.
             if (!versions[projectVersion]) {
-                return onerror("Version " + projectVersion + " is not avaiable.");
+                version = versions[Object.getOwnPropertyNames(versions)[0]];
+                console.warn("Version " + projectVersion + " is not avaiable. Available versions: " + Object.getOwnPropertyNames(versions).join(", ") + ". Will use " + version.version);
+            }
+            else {
+                version = versions[projectVersion];
             }
             ///TODO: Skip getting build info if already extracted?
             console.log("Getting build info...");
-            getItemBuildInfo(id, versions[projectVersion].appId, skipCache, function (err, itemBuildInfo, skipCache)
+            getItemBuildInfo(id, version.appId, skipCache, function (err, itemBuildInfo, skipCache)
             {
                 console.log(skipCache);
                 if (err) {
@@ -1110,7 +1118,7 @@ function addAssetToProject(assetInfo, projectData, ondone, onerror, onprogress)
                 }
                 ///TODO: Skip getting manifest if already extracted?
                 console.log("Getting item manifest...");
-                getItemManifest(id, versions[projectVersion].appId, itemBuildInfo, false, skipCache, function (err, manifest)
+                getItemManifest(id, version.appId, itemBuildInfo, false, skipCache, function (err, manifest)
                 {
                     var chunks;
                     var appId;
