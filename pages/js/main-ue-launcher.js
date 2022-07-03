@@ -9,7 +9,7 @@ var ipc = electron.ipcRenderer;
 
 var FindInPage = require('./js/find/index.js').FindInPage;
 
-let findInPage = new FindInPage(electron.remote.getCurrentWebContents(), {
+let findInPage = new FindInPage(require('@electron/remote').getCurrentWebContents(), {
   preload: true,
   offsetTop: 6,
   offsetRight: 10,
@@ -214,7 +214,7 @@ function prepareForAddingAssets()
     ipc.on("addingAssetErr", function (event, data)
     {
         data = parseJson(data);
-        error("Asset installation falied.");
+        error("Asset installation falied. " + JSON.stringify(data));
         console.error(data);
         
         onfinish();

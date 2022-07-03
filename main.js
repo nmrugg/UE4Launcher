@@ -7,6 +7,8 @@ var fs = require("fs");
 var request = require("./libs/request-helper.js");
 var loadJsonFile = require("./libs/loadJsonFile.js");
 var projectsManager = require("./libs/projects.js");
+var electronRemote = require("@electron/remote/main");
+
 var app = electron.app;
 var BrowserWindow = electron.BrowserWindow;
 var Menu = electron.Menu;
@@ -28,6 +30,8 @@ var vaultData;
 var configData;
 var assetsData;
 var localAssetsData;
+
+electronRemote.initialize();
 
 function mkdirSync(dir)
 {
@@ -276,7 +280,9 @@ function login(cb)
     
     
     // Open the DevTools.
-    // loginWindow.webContents.openDevTools()
+    if (configData.devTools) {
+        loginWindow.webContents.openDevTools()
+    }
     
     // Emitted when the window is closed.
     /*
@@ -483,6 +489,7 @@ function sanitizeConfigWindowData()
 function createMainWindow()
 {
     sanitizeConfigWindowData();
+    console.log("Running electron", process.versions.electron)
     console.log(configData)
     
     // Create the browser window.
@@ -495,6 +502,8 @@ function createMainWindow()
         webPreferences: {
             //preload: p.join(__dirname, "preload.js")
             nodeIntegration: true,
+            contextIsolation: false,
+            enableRemoteModule: true,
             devTools: configData.devTools,
         },
         
@@ -503,6 +512,7 @@ function createMainWindow()
         title: "Unreal Engine Launcher"
     });
     var contents = mainWindow.webContents;
+    electronRemote.enable(contents)
     // and load the index.html of the app.
     mainWindow.loadFile("pages/unreal_engine.html");
     
@@ -616,7 +626,8 @@ function downloadVaultData(cb)
                     }
                     ///TODO: Try again?
                 }
-                cb(vault);
+                // This is an exceptional condition, so we cannot return the vault here
+                cb(null);
             } else {
                 dlTotal = data.data.paging.total;
                 
@@ -678,14 +689,13 @@ function updateVault(ignoreCache, cb)
             {
                 if (data) {
                     vaultData = data;
-                } else {
-                    vaultData = [];
+                    // Only save a valid object. E.g., if the login was unsuccessful, we want to
+                    // re-authenticate on the next run.
+                    fs.writeFileSync(vaultPath, JSON.stringify(vaultData));
                 }
                 
-                fs.writeFileSync(vaultPath, JSON.stringify(vaultData));
-                
                 if (cb) {
-                    cb(vaultData);
+                    cb(data);
                 }
             });
         } else {
@@ -754,16 +764,20 @@ function getEngineVersion(path)
         if (data.MajorVersion && data.MinorVersion) {
             return data.MajorVersion + "." + data.MinorVersion;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.log(e);
+    }
     
     try {
         /// Check the last tag for the engine number.
         data = require("child_process").execSync("git describe --abbrev=0", {stdio: "pipe", cwd: path, encoding: "utf8"}).trim();
-        match = data.match(/^(\d+\.\d+).*release$/);
+        match = data.match(/^(\d+\.\d+).*(?:release|early-access-\d+)$/);
         if (match) {
             return match[1];
         }
-    } catch (e) {}
+    } catch (e) {
+        console.log(e);
+    }
     
     try {
         /// Check BRANCH_NAME in UE4Defines.pri for the engine number.
@@ -772,7 +786,9 @@ function getEngineVersion(path)
         if (match) {
             return match[1];
         }
-    } catch (e) {}
+    } catch (e) {
+        console.log(e);
+    }
     
 }
 
