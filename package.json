@@ -1,6 +1,6 @@
 {
   "name": "ue4launcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A cross-platform launcher for Unreal Engine",
   "main": "main.js",
   "scripts": {
