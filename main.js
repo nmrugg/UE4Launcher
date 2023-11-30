@@ -643,9 +643,11 @@ function downloadVaultData(cb)
                     if (addedCount) {
                         dlIndex += addedCount;
                     } else {
-                        return done();
+                        console.log("WARN: Could not find an item at " + dlIndex + ". Trying for the next one.");
+                        ++dlIndex;
                     }
                 } else {
+                    console.log("WARN: Could not find any items");
                     return done();
                 }
                 loop();
